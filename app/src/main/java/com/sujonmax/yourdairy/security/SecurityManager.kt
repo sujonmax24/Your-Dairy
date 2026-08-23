@@ -10,11 +10,8 @@ class SecurityManager(context: Context) {
     private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     private val random = SecureRandom()
 
-    val isConfigured: Boolean
-        get() = prefs.getBoolean(KEY_CONFIGURED, false)
-
-    val biometricEnabled: Boolean
-        get() = prefs.getBoolean(KEY_BIOMETRIC, false)
+    val isConfigured: Boolean get() = prefs.getBoolean(KEY_CONFIGURED, false)
+    val biometricEnabled: Boolean get() = prefs.getBoolean(KEY_BIOMETRIC, false)
 
     fun configurePin(pin: String): String {
         require(pin.length == 4 && pin.all(Char::isDigit))
@@ -27,6 +24,7 @@ class SecurityManager(context: Context) {
             .putString(KEY_RECOVERY_SALT, encode(recoverySalt))
             .putString(KEY_RECOVERY_HASH, encode(hash(recoveryCode, recoverySalt)))
             .putBoolean(KEY_CONFIGURED, true)
+            .putBoolean(KEY_BIOMETRIC, true)
             .apply()
         return recoveryCode
     }
@@ -37,10 +35,7 @@ class SecurityManager(context: Context) {
         if (!verifyPin(currentPin)) return false
         require(newPin.length == 4 && newPin.all(Char::isDigit))
         val salt = ByteArray(SALT_SIZE).also(random::nextBytes)
-        prefs.edit()
-            .putString(KEY_PIN_SALT, encode(salt))
-            .putString(KEY_PIN_HASH, encode(hash(newPin, salt)))
-            .apply()
+        prefs.edit().putString(KEY_PIN_SALT, encode(salt)).putString(KEY_PIN_HASH, encode(hash(newPin, salt))).apply()
         return true
     }
 
@@ -48,16 +43,11 @@ class SecurityManager(context: Context) {
         if (!verify(recoveryCode, KEY_RECOVERY_SALT, KEY_RECOVERY_HASH)) return false
         require(newPin.length == 4 && newPin.all(Char::isDigit))
         val salt = ByteArray(SALT_SIZE).also(random::nextBytes)
-        prefs.edit()
-            .putString(KEY_PIN_SALT, encode(salt))
-            .putString(KEY_PIN_HASH, encode(hash(newPin, salt)))
-            .apply()
+        prefs.edit().putString(KEY_PIN_SALT, encode(salt)).putString(KEY_PIN_HASH, encode(hash(newPin, salt))).apply()
         return true
     }
 
-    fun setBiometricEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_BIOMETRIC, enabled).apply()
-    }
+    fun setBiometricEnabled(enabled: Boolean) = prefs.edit().putBoolean(KEY_BIOMETRIC, enabled).apply()
 
     private fun verify(value: String, saltKey: String, hashKey: String): Boolean {
         val salt = prefs.getString(saltKey, null)?.let(::decode) ?: return false
@@ -67,17 +57,11 @@ class SecurityManager(context: Context) {
 
     private fun hash(value: String, salt: ByteArray): ByteArray {
         val spec = PBEKeySpec(value.toCharArray(), salt, ITERATIONS, KEY_LENGTH_BITS)
-        return try {
-            SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1").generateSecret(spec).encoded
-        } finally {
-            spec.clearPassword()
-        }
+        return try { SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1").generateSecret(spec).encoded }
+        finally { spec.clearPassword() }
     }
 
-    private fun generateRecoveryCode(): String = buildString {
-        repeat(12) { append(random.nextInt(10)) }
-    }
-
+    private fun generateRecoveryCode(): String = buildString { repeat(12) { append(random.nextInt(10)) } }
     private fun encode(bytes: ByteArray): String = Base64.encodeToString(bytes, Base64.NO_WRAP)
     private fun decode(value: String): ByteArray = Base64.decode(value, Base64.NO_WRAP)
 
