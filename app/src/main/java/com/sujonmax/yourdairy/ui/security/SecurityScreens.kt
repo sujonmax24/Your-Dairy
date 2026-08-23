@@ -31,7 +31,7 @@ fun PinSetupScreen(security: SecurityManager, onConfigured: () -> Unit) {
     var confirm by remember { mutableStateOf("") }
     var recovery by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
-    Column(Modifier.fillMaxSize().padding(24.dp), Arrangement.Center) {
+    Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center) {
         Text("Secure your diary", style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(8.dp))
         Text("Create a 4-digit PIN. A recovery code will be generated once.")
@@ -48,12 +48,15 @@ fun PinSetupScreen(security: SecurityManager, onConfigured: () -> Unit) {
                 else -> null
             }
             if (error == null) recovery = security.configurePin(pin)
-        }, Modifier.fillMaxWidth()) { Text("Create secure PIN") }
+        }, modifier = Modifier.fillMaxWidth()) { Text("Create secure PIN") }
     }
     recovery?.let { code ->
-        AlertDialog(onDismissRequest = {}, title = { Text("Save your recovery code") },
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Save your recovery code") },
             text = { Text("$code\n\nStore this code somewhere safe. It is required if you forget your PIN.") },
-            confirmButton = { TextButton(onClick = onConfigured) { Text("I saved it") } })
+            confirmButton = { TextButton(onClick = onConfigured) { Text("I saved it") } }
+        )
     }
 }
 
@@ -61,7 +64,7 @@ fun PinSetupScreen(security: SecurityManager, onConfigured: () -> Unit) {
 fun PinLockScreen(security: SecurityManager, onUnlocked: () -> Unit, onBiometric: (() -> Unit)?, onRecovery: () -> Unit) {
     var pin by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
-    Column(Modifier.fillMaxSize().padding(24.dp), Arrangement.Center) {
+    Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center) {
         Text("Dream Diry is locked", style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(12.dp))
         PinField("Enter PIN", pin) { if (it.length <= 4) pin = it.filter(Char::isDigit) }
@@ -69,13 +72,13 @@ fun PinLockScreen(security: SecurityManager, onUnlocked: () -> Unit, onBiometric
         Spacer(Modifier.height(16.dp))
         Button(onClick = {
             if (security.verifyPin(pin)) onUnlocked() else { error = "Incorrect PIN."; pin = "" }
-        }, Modifier.fillMaxWidth()) { Text("Unlock") }
+        }, modifier = Modifier.fillMaxWidth()) { Text("Unlock") }
         if (onBiometric != null) {
             Spacer(Modifier.height(8.dp))
-            OutlinedButton(onClick = onBiometric, Modifier.fillMaxWidth()) { Text("Use biometric") }
+            OutlinedButton(onClick = onBiometric, modifier = Modifier.fillMaxWidth()) { Text("Use biometric") }
         }
         Spacer(Modifier.height(8.dp))
-        TextButton(onClick = onRecovery, Modifier.fillMaxWidth()) { Text("Forgot PIN?") }
+        TextButton(onClick = onRecovery, modifier = Modifier.fillMaxWidth()) { Text("Forgot PIN?") }
     }
 }
 
@@ -85,12 +88,17 @@ fun RecoveryScreen(security: SecurityManager, onRecovered: () -> Unit, onCancel:
     var newPin by remember { mutableStateOf("") }
     var confirm by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
-    Column(Modifier.fillMaxSize().padding(24.dp), Arrangement.Center) {
+    Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center) {
         Text("Recover your diary", style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(16.dp))
-        OutlinedTextField(value = code, onValueChange = { if (it.length <= 12) code = it.filter(Char::isDigit) },
-            label = { Text("12-digit recovery code") }, Modifier.fillMaxWidth(), true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+        OutlinedTextField(
+            value = code,
+            onValueChange = { if (it.length <= 12) code = it.filter(Char::isDigit) },
+            label = { Text("12-digit recovery code") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+        )
         Spacer(Modifier.height(12.dp))
         PinField("New PIN", newPin) { if (it.length <= 4) newPin = it.filter(Char::isDigit) }
         Spacer(Modifier.height(12.dp))
@@ -106,13 +114,19 @@ fun RecoveryScreen(security: SecurityManager, onRecovered: () -> Unit, onCancel:
                 else -> null
             }
             if (error == null) onRecovered()
-        }, Modifier.fillMaxWidth()) { Text("Reset PIN") }
-        TextButton(onClick = onCancel, Modifier.fillMaxWidth()) { Text("Cancel") }
+        }, modifier = Modifier.fillMaxWidth()) { Text("Reset PIN") }
+        TextButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) { Text("Cancel") }
     }
 }
 
 @Composable
 private fun PinField(label: String, value: String, onValueChange: (String) -> Unit) {
-    OutlinedTextField(value = value, onValueChange = onValueChange, label = { Text(label) },
-        Modifier.fillMaxWidth(), true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+    )
 }
