@@ -71,14 +71,9 @@ class MainActivity : FragmentActivity() {
     @Composable
     private fun SecurityGate() {
         var recoveryMode by rememberSaveable { mutableStateOf(false) }
-
         when {
             !security.isConfigured -> PinSetupScreen(security) { unlocked = true }
-            recoveryMode -> RecoveryScreen(
-                security = security,
-                onRecovered = { recoveryMode = false; unlocked = true },
-                onCancel = { recoveryMode = false }
-            )
+            recoveryMode -> RecoveryScreen(security, onRecovered = { recoveryMode = false; unlocked = true }, onCancel = { recoveryMode = false })
             !unlocked -> PinLockScreen(
                 security = security,
                 onUnlocked = { unlocked = true },
@@ -97,20 +92,22 @@ class MainActivity : FragmentActivity() {
         var isEditorOpen by rememberSaveable { mutableStateOf(false) }
         var isAboutOpen by rememberSaveable { mutableStateOf(false) }
         var isManagementOpen by rememberSaveable { mutableStateOf(false) }
+        val folders by viewModel.folders.collectAsStateWithLifecycle(initialValue = emptyList())
 
         when {
             isAboutOpen -> AboutScreen(onBack = { isAboutOpen = false })
-            isManagementOpen -> ManagementScreen(
-                viewModel = viewModel,
-                onBack = { isManagementOpen = false }
-            )
+            isManagementOpen -> ManagementScreen(viewModel = viewModel, onBack = { isManagementOpen = false })
             isEditorOpen -> DiaryEditorScreen(
                 note = editingNote,
+                folders = folders,
                 onBack = { isEditorOpen = false },
                 onSave = { note ->
                     val existing = editingNote
-                    if (existing == null) viewModel.saveNote(note.title, note.content)
-                    else viewModel.updateNote(existing, note.title, note.content)
+                    if (existing == null) {
+                        viewModel.saveNote(note.title, note.content, note.tags, note.folderId)
+                    } else {
+                        viewModel.updateNote(existing, note.title, note.content, note.tags, note.folderId)
+                    }
                     isEditorOpen = false
                 }
             )
@@ -126,13 +123,7 @@ class MainActivity : FragmentActivity() {
 }
 
 @Composable
-private fun DreamDiaryHome(
-    viewModel: DiaryViewModel,
-    onNewNote: () -> Unit,
-    onEditNote: (NoteEntity) -> Unit,
-    onAbout: () -> Unit,
-    onManagement: () -> Unit
-) {
+private fun DreamDiaryHome(viewModel: DiaryViewModel, onNewNote: () -> Unit, onEditNote: (NoteEntity) -> Unit, onAbout: () -> Unit, onManagement: () -> Unit) {
     val notes by viewModel.searchResults.collectAsStateWithLifecycle(initialValue = emptyList())
     val query by viewModel.query.collectAsStateWithLifecycle()
     var searchMode by rememberSaveable { mutableStateOf(false) }
@@ -140,87 +131,39 @@ private fun DreamDiaryHome(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Column {
-                        Text("Dream Diry", fontWeight = FontWeight.Bold)
-                        Text("create by sujonmax", style = MaterialTheme.typography.labelSmall)
-                    }
-                },
+                title = { Column { Text("Dream Diry", fontWeight = FontWeight.Bold); Text("create by sujonmax", style = MaterialTheme.typography.labelSmall) } },
                 actions = {
-                    IconButton(onClick = onManagement) {
-                        Icon(Icons.Default.Favorite, contentDescription = "Favorites, folders and trash")
-                    }
-                    IconButton(onClick = { searchMode = !searchMode }) {
-                        Icon(Icons.Default.Search, contentDescription = "Search diary")
-                    }
-                    IconButton(onClick = onAbout) {
-                        Icon(Icons.Default.Info, contentDescription = "About Dream Diry")
-                    }
+                    IconButton(onClick = onManagement) { Icon(Icons.Default.Favorite, contentDescription = "Favorites, folders and trash") }
+                    IconButton(onClick = { searchMode = !searchMode }) { Icon(Icons.Default.Search, contentDescription = "Search diary") }
+                    IconButton(onClick = onAbout) { Icon(Icons.Default.Info, contentDescription = "About Dream Diry") }
                 }
             )
         },
-        floatingActionButton = {
-            FloatingActionButton(onClick = onNewNote) {
-                Icon(Icons.Default.Add, contentDescription = "New diary entry")
-            }
-        }
+        floatingActionButton = { FloatingActionButton(onClick = onNewNote) { Icon(Icons.Default.Add, contentDescription = "New diary entry") } }
     ) { padding ->
-        Column(
-            Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp)
-        ) {
+        Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
             if (searchMode) {
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = viewModel::setQuery,
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Search title, diary content or tags") },
-                    singleLine = true
-                )
+                OutlinedTextField(value = query, onValueChange = viewModel::setQuery, modifier = Modifier.fillMaxWidth(), label = { Text("Search title, diary content or tags") }, singleLine = true)
                 Spacer(Modifier.height(12.dp))
             }
             Text("Recent memories", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(8.dp))
-            if (notes.isEmpty()) {
-                Text(
-                    "No diary entries yet. Tap + to write your first memory.",
-                    Modifier.padding(vertical = 24.dp)
-                )
-            } else {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    items(notes, key = { it.id }) { note ->
-                        NoteCard(note, viewModel) { onEditNote(note) }
-                    }
-                }
+            if (notes.isEmpty()) Text("No diary entries yet. Tap + to write your first memory.", Modifier.padding(vertical = 24.dp))
+            else LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize()) {
+                items(notes, key = { it.id }) { note -> NoteCard(note, onEditNote) }
             }
         }
     }
 }
 
 @Composable
-private fun NoteCard(note: NoteEntity, viewModel: DiaryViewModel, onClick: () -> Unit) {
-    Card(Modifier.fillMaxWidth(), onClick = onClick) {
+private fun NoteCard(note: NoteEntity, onClick: (NoteEntity) -> Unit) {
+    Card(Modifier.fillMaxWidth(), onClick = { onClick(note) }) {
         Column(Modifier.padding(18.dp)) {
-            Text(
-                note.title.ifBlank { "Untitled" },
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
+            Text(note.title.ifBlank { "Untitled" }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(6.dp))
-            Text(
-                note.content.ifBlank { "No content" },
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 4
-            )
-            if (note.isFavorite) {
-                Spacer(Modifier.height(6.dp))
-                Text("★ Favorite", style = MaterialTheme.typography.labelMedium)
-            }
+            Text(note.content.ifBlank { "No content" }, style = MaterialTheme.typography.bodyMedium, maxLines = 4)
+            if (note.isFavorite) { Spacer(Modifier.height(6.dp)); Text("★ Favorite", style = MaterialTheme.typography.labelMedium) }
         }
     }
 }
