@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
@@ -43,6 +44,7 @@ import com.sujonmax.yourdairy.ui.about.AboutScreen
 import com.sujonmax.yourdairy.ui.diary.DiaryEditorScreen
 import com.sujonmax.yourdairy.ui.diary.DiaryViewModel
 import com.sujonmax.yourdairy.ui.diary.DiaryViewModelFactory
+import com.sujonmax.yourdairy.ui.management.ManagementScreen
 import com.sujonmax.yourdairy.ui.security.PinLockScreen
 import com.sujonmax.yourdairy.ui.security.PinSetupScreen
 import com.sujonmax.yourdairy.ui.security.RecoveryScreen
@@ -94,9 +96,14 @@ class MainActivity : FragmentActivity() {
         var editingNote by remember { mutableStateOf<NoteEntity?>(null) }
         var isEditorOpen by rememberSaveable { mutableStateOf(false) }
         var isAboutOpen by rememberSaveable { mutableStateOf(false) }
+        var isManagementOpen by rememberSaveable { mutableStateOf(false) }
 
         when {
             isAboutOpen -> AboutScreen(onBack = { isAboutOpen = false })
+            isManagementOpen -> ManagementScreen(
+                viewModel = viewModel,
+                onBack = { isManagementOpen = false }
+            )
             isEditorOpen -> DiaryEditorScreen(
                 note = editingNote,
                 onBack = { isEditorOpen = false },
@@ -111,7 +118,8 @@ class MainActivity : FragmentActivity() {
                 viewModel = viewModel,
                 onNewNote = { editingNote = null; isEditorOpen = true },
                 onEditNote = { note -> editingNote = note; isEditorOpen = true },
-                onAbout = { isAboutOpen = true }
+                onAbout = { isAboutOpen = true },
+                onManagement = { isManagementOpen = true }
             )
         }
     }
@@ -122,7 +130,8 @@ private fun DreamDiaryHome(
     viewModel: DiaryViewModel,
     onNewNote: () -> Unit,
     onEditNote: (NoteEntity) -> Unit,
-    onAbout: () -> Unit
+    onAbout: () -> Unit,
+    onManagement: () -> Unit
 ) {
     val notes by viewModel.searchResults.collectAsStateWithLifecycle(initialValue = emptyList())
     val query by viewModel.query.collectAsStateWithLifecycle()
@@ -138,6 +147,9 @@ private fun DreamDiaryHome(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onManagement) {
+                        Icon(Icons.Default.Favorite, contentDescription = "Favorites, folders and trash")
+                    }
                     IconButton(onClick = { searchMode = !searchMode }) {
                         Icon(Icons.Default.Search, contentDescription = "Search diary")
                     }
@@ -182,7 +194,7 @@ private fun DreamDiaryHome(
                     modifier = Modifier.fillMaxSize()
                 ) {
                     items(notes, key = { it.id }) { note ->
-                        NoteCard(note) { onEditNote(note) }
+                        NoteCard(note, viewModel) { onEditNote(note) }
                     }
                 }
             }
@@ -191,7 +203,7 @@ private fun DreamDiaryHome(
 }
 
 @Composable
-private fun NoteCard(note: NoteEntity, onClick: () -> Unit) {
+private fun NoteCard(note: NoteEntity, viewModel: DiaryViewModel, onClick: () -> Unit) {
     Card(Modifier.fillMaxWidth(), onClick = onClick) {
         Column(Modifier.padding(18.dp)) {
             Text(
@@ -205,6 +217,10 @@ private fun NoteCard(note: NoteEntity, onClick: () -> Unit) {
                 style = MaterialTheme.typography.bodyMedium,
                 maxLines = 4
             )
+            if (note.isFavorite) {
+                Spacer(Modifier.height(6.dp))
+                Text("★ Favorite", style = MaterialTheme.typography.labelMedium)
+            }
         }
     }
 }
