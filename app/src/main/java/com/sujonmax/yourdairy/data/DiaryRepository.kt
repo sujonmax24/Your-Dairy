@@ -12,6 +12,7 @@ class DiaryRepository(
 ) {
     val notes: Flow<List<NoteEntity>> = noteDao.observeActiveNotes()
     val trash: Flow<List<NoteEntity>> = noteDao.observeTrash()
+    val favorites: Flow<List<NoteEntity>> = noteDao.observeFavorites()
     val folders: Flow<List<FolderEntity>> = folderDao.observeFolders()
 
     fun search(query: String): Flow<List<NoteEntity>> = noteDao.search(query.trim())
@@ -25,6 +26,8 @@ class DiaryRepository(
         }
     }
 
+    suspend fun setFavorite(id: Long, favorite: Boolean) = noteDao.setFavorite(id, favorite)
+
     suspend fun createFolder(name: String): Long =
         folderDao.insert(FolderEntity(name = name.trim()))
 
@@ -36,4 +39,5 @@ class DiaryRepository(
     suspend fun moveToTrash(id: Long) = noteDao.moveToTrash(id)
     suspend fun restore(id: Long) = noteDao.restore(id)
     suspend fun permanentlyDelete(id: Long) = noteDao.permanentlyDelete(id)
+    suspend fun emptyTrash() = noteDao.emptyTrash()
 }
