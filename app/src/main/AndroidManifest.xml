@@ -3,7 +3,9 @@
 
     <application
         android:allowBackup="true"
+        android:icon="@drawable/ic_dream_diary"
         android:label="Dream Diry"
+        android:roundIcon="@drawable/ic_dream_diary"
         android:supportsRtl="true"
         android:theme="@style/Theme.YourDairy">
         <activity
