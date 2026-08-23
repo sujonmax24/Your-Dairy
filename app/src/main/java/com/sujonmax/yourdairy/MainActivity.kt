@@ -28,6 +28,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -57,7 +58,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun DreamDiaryApp(viewModel: DiaryViewModel) {
-    var editingNote by rememberSaveable { mutableStateOf<NoteEntity?>(null) }
+    var editingNote by remember { mutableStateOf<NoteEntity?>(null) }
     var isEditorOpen by rememberSaveable { mutableStateOf(false) }
 
     if (isEditorOpen) {
