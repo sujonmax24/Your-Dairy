@@ -1,7 +1,6 @@
 package com.sujonmax.yourdairy.data.local.dao
 
 import androidx.room.Dao
-import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Update
@@ -16,6 +15,9 @@ interface NoteDao {
     @Query("SELECT * FROM notes WHERE isDeleted = 1 ORDER BY updatedAt DESC")
     fun observeTrash(): Flow<List<NoteEntity>>
 
+    @Query("SELECT * FROM notes WHERE isDeleted = 0 AND isFavorite = 1 ORDER BY updatedAt DESC")
+    fun observeFavorites(): Flow<List<NoteEntity>>
+
     @Query("SELECT * FROM notes WHERE id = :id LIMIT 1")
     fun observeById(id: Long): Flow<NoteEntity?>
 
@@ -28,8 +30,8 @@ interface NoteDao {
     @Update
     suspend fun update(note: NoteEntity)
 
-    @Delete
-    suspend fun delete(note: NoteEntity)
+    @Query("UPDATE notes SET isFavorite = :favorite, updatedAt = :time WHERE id = :id")
+    suspend fun setFavorite(id: Long, favorite: Boolean, time: Long = System.currentTimeMillis())
 
     @Query("UPDATE notes SET isDeleted = 1, updatedAt = :time WHERE id = :id")
     suspend fun moveToTrash(id: Long, time: Long = System.currentTimeMillis())
@@ -39,4 +41,7 @@ interface NoteDao {
 
     @Query("DELETE FROM notes WHERE id = :id")
     suspend fun permanentlyDelete(id: Long)
+
+    @Query("DELETE FROM notes WHERE isDeleted = 1")
+    suspend fun emptyTrash()
 }
