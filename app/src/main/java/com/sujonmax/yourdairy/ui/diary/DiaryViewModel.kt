@@ -3,6 +3,7 @@ package com.sujonmax.yourdairy.ui.diary
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sujonmax.yourdairy.data.DiaryRepository
+import com.sujonmax.yourdairy.data.local.entity.FolderEntity
 import com.sujonmax.yourdairy.data.local.entity.NoteEntity
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
@@ -18,7 +19,8 @@ class DiaryViewModel(
 ) : ViewModel() {
     val notes: Flow<List<NoteEntity>> = repository.notes
     val trash: Flow<List<NoteEntity>> = repository.trash
-    val folders = repository.folders
+    val favorites: Flow<List<NoteEntity>> = repository.favorites
+    val folders: Flow<List<FolderEntity>> = repository.folders
 
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()
@@ -61,7 +63,22 @@ class DiaryViewModel(
         }
     }
 
+    fun toggleFavorite(note: NoteEntity) =
+        viewModelScope.launch { repository.setFavorite(note.id, !note.isFavorite) }
+
+    fun createFolder(name: String) {
+        if (name.isBlank()) return
+        viewModelScope.launch { repository.createFolder(name) }
+    }
+
+    fun renameFolder(folder: FolderEntity, name: String) {
+        if (name.isBlank()) return
+        viewModelScope.launch { repository.renameFolder(folder, name) }
+    }
+
+    fun deleteFolder(folder: FolderEntity) = viewModelScope.launch { repository.deleteFolder(folder) }
     fun moveToTrash(id: Long) = viewModelScope.launch { repository.moveToTrash(id) }
     fun restore(id: Long) = viewModelScope.launch { repository.restore(id) }
     fun permanentlyDelete(id: Long) = viewModelScope.launch { repository.permanentlyDelete(id) }
+    fun emptyTrash() = viewModelScope.launch { repository.emptyTrash() }
 }
