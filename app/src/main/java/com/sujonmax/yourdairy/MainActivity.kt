@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.FloatingActionButton
@@ -35,10 +36,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewModelScope
 import com.sujonmax.yourdairy.data.local.entity.NoteEntity
 import com.sujonmax.yourdairy.security.BiometricHelper
 import com.sujonmax.yourdairy.security.SecurityManager
+import com.sujonmax.yourdairy.ui.about.AboutScreen
 import com.sujonmax.yourdairy.ui.diary.DiaryEditorScreen
 import com.sujonmax.yourdairy.ui.diary.DiaryViewModel
 import com.sujonmax.yourdairy.ui.diary.DiaryViewModelFactory
@@ -57,11 +58,7 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         security = SecurityManager(applicationContext)
-        setContent {
-            YourDairyTheme {
-                SecurityGate()
-            }
-        }
+        setContent { YourDairyTheme { SecurityGate() } }
     }
 
     override fun onStart() {
@@ -96,9 +93,11 @@ class MainActivity : FragmentActivity() {
     private fun DreamDiaryApp(viewModel: DiaryViewModel) {
         var editingNote by remember { mutableStateOf<NoteEntity?>(null) }
         var isEditorOpen by rememberSaveable { mutableStateOf(false) }
+        var isAboutOpen by rememberSaveable { mutableStateOf(false) }
 
-        if (isEditorOpen) {
-            DiaryEditorScreen(
+        when {
+            isAboutOpen -> AboutScreen(onBack = { isAboutOpen = false })
+            isEditorOpen -> DiaryEditorScreen(
                 note = editingNote,
                 onBack = { isEditorOpen = false },
                 onSave = { note ->
@@ -108,21 +107,27 @@ class MainActivity : FragmentActivity() {
                     isEditorOpen = false
                 }
             )
-        } else {
-            DreamDiaryHome(
+            else -> DreamDiaryHome(
                 viewModel = viewModel,
                 onNewNote = { editingNote = null; isEditorOpen = true },
-                onEditNote = { note -> editingNote = note; isEditorOpen = true }
+                onEditNote = { note -> editingNote = note; isEditorOpen = true },
+                onAbout = { isAboutOpen = true }
             )
         }
     }
 }
 
 @Composable
-private fun DreamDiaryHome(viewModel: DiaryViewModel, onNewNote: () -> Unit, onEditNote: (NoteEntity) -> Unit) {
+private fun DreamDiaryHome(
+    viewModel: DiaryViewModel,
+    onNewNote: () -> Unit,
+    onEditNote: (NoteEntity) -> Unit,
+    onAbout: () -> Unit
+) {
     val notes by viewModel.searchResults.collectAsStateWithLifecycle(initialValue = emptyList())
     val query by viewModel.query.collectAsStateWithLifecycle()
     var searchMode by rememberSaveable { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -132,21 +137,54 @@ private fun DreamDiaryHome(viewModel: DiaryViewModel, onNewNote: () -> Unit, onE
                         Text("create by sujonmax", style = MaterialTheme.typography.labelSmall)
                     }
                 },
-                actions = { IconButton(onClick = { searchMode = !searchMode }) { Icon(Icons.Default.Search, "Search diary") } }
+                actions = {
+                    IconButton(onClick = { searchMode = !searchMode }) {
+                        Icon(Icons.Default.Search, contentDescription = "Search diary")
+                    }
+                    IconButton(onClick = onAbout) {
+                        Icon(Icons.Default.Info, contentDescription = "About Dream Diry")
+                    }
+                }
             )
         },
-        floatingActionButton = { FloatingActionButton(onClick = onNewNote) { Icon(Icons.Default.Add, "New diary entry") } }
+        floatingActionButton = {
+            FloatingActionButton(onClick = onNewNote) {
+                Icon(Icons.Default.Add, contentDescription = "New diary entry")
+            }
+        }
     ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 16.dp)
+        ) {
             if (searchMode) {
-                OutlinedTextField(query, viewModel::setQuery, Modifier.fillMaxWidth(), label = { Text("Search") }, singleLine = true)
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = viewModel::setQuery,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Search title, diary content or tags") },
+                    singleLine = true
+                )
                 Spacer(Modifier.height(12.dp))
             }
             Text("Recent memories", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(8.dp))
-            if (notes.isEmpty()) Text("No diary entries yet. Tap + to write your first memory.", Modifier.padding(vertical = 24.dp))
-            else LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize()) {
-                items(notes, key = { it.id }) { note -> NoteCard(note, { onEditNote(note) }) }
+            if (notes.isEmpty()) {
+                Text(
+                    "No diary entries yet. Tap + to write your first memory.",
+                    Modifier.padding(vertical = 24.dp)
+                )
+            } else {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    items(notes, key = { it.id }) { note ->
+                        NoteCard(note) { onEditNote(note) }
+                    }
+                }
             }
         }
     }
@@ -156,9 +194,17 @@ private fun DreamDiaryHome(viewModel: DiaryViewModel, onNewNote: () -> Unit, onE
 private fun NoteCard(note: NoteEntity, onClick: () -> Unit) {
     Card(Modifier.fillMaxWidth(), onClick = onClick) {
         Column(Modifier.padding(18.dp)) {
-            Text(note.title.ifBlank { "Untitled" }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(
+                note.title.ifBlank { "Untitled" },
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
             Spacer(Modifier.height(6.dp))
-            Text(note.content.ifBlank { "No content" }, style = MaterialTheme.typography.bodyMedium, maxLines = 4)
+            Text(
+                note.content.ifBlank { "No content" },
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 4
+            )
         }
     }
 }
