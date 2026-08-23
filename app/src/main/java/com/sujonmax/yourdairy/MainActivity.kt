@@ -64,7 +64,14 @@ private fun DreamDiaryApp(viewModel: DiaryViewModel) {
         DiaryEditorScreen(
             note = editingNote,
             onBack = { isEditorOpen = false },
-            onSave = { note -> viewModel.saveNote(note.title, note.content, note.id) }
+            onSave = { note ->
+                val existing = editingNote
+                if (existing == null) {
+                    viewModel.saveNote(note.title, note.content)
+                } else {
+                    viewModel.updateNote(existing, note.title, note.content)
+                }
+            }
         )
     } else {
         DreamDiaryHome(
