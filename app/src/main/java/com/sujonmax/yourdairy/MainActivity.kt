@@ -16,7 +16,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -25,7 +24,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -37,6 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sujonmax.yourdairy.data.local.entity.NoteEntity
+import com.sujonmax.yourdairy.ui.diary.DiaryEditorScreen
 import com.sujonmax.yourdairy.ui.diary.DiaryViewModel
 import com.sujonmax.yourdairy.ui.diary.DiaryViewModelFactory
 import com.sujonmax.yourdairy.ui.theme.YourDairyTheme
@@ -50,18 +49,47 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             YourDairyTheme {
-                DreamDiaryHome(diaryViewModel)
+                DreamDiaryApp(diaryViewModel)
             }
         }
     }
 }
 
 @Composable
-private fun DreamDiaryHome(viewModel: DiaryViewModel) {
+private fun DreamDiaryApp(viewModel: DiaryViewModel) {
+    var editingNote by rememberSaveable { mutableStateOf<NoteEntity?>(null) }
+    var isEditorOpen by rememberSaveable { mutableStateOf(false) }
+
+    if (isEditorOpen) {
+        DiaryEditorScreen(
+            note = editingNote,
+            onBack = { isEditorOpen = false },
+            onSave = { note -> viewModel.saveNote(note.title, note.content, note.id) }
+        )
+    } else {
+        DreamDiaryHome(
+            viewModel = viewModel,
+            onNewNote = {
+                editingNote = null
+                isEditorOpen = true
+            },
+            onEditNote = { note ->
+                editingNote = note
+                isEditorOpen = true
+            }
+        )
+    }
+}
+
+@Composable
+private fun DreamDiaryHome(
+    viewModel: DiaryViewModel,
+    onNewNote: () -> Unit,
+    onEditNote: (NoteEntity) -> Unit
+) {
     val notes by viewModel.searchResults.collectAsStateWithLifecycle(initialValue = emptyList())
     val query by viewModel.query.collectAsStateWithLifecycle()
     var searchMode by rememberSaveable { mutableStateOf(false) }
-    var showEditor by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -80,7 +108,7 @@ private fun DreamDiaryHome(viewModel: DiaryViewModel) {
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showEditor = true }) {
+            FloatingActionButton(onClick = onNewNote) {
                 Icon(Icons.Default.Add, contentDescription = "New diary entry")
             }
         }
@@ -117,66 +145,20 @@ private fun DreamDiaryHome(viewModel: DiaryViewModel) {
                     modifier = Modifier.fillMaxSize()
                 ) {
                     items(notes, key = { it.id }) { note ->
-                        NoteCard(note)
+                        NoteCard(note = note, onClick = { onEditNote(note) })
                     }
                 }
             }
         }
     }
-
-    if (showEditor) {
-        NewNoteDialog(
-            onDismiss = { showEditor = false },
-            onSave = { title, content ->
-                viewModel.saveNote(title, content)
-                showEditor = false
-            }
-        )
-    }
 }
 
 @Composable
-private fun NewNoteDialog(
-    onDismiss: () -> Unit,
-    onSave: (String, String) -> Unit
-) {
-    var title by rememberSaveable { mutableStateOf("") }
-    var content by rememberSaveable { mutableStateOf("") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("New diary entry") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text("Title") },
-                    singleLine = true
-                )
-                OutlinedTextField(
-                    value = content,
-                    onValueChange = { content = it },
-                    label = { Text("Write your memory...") },
-                    minLines = 5
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onSave(title, content) },
-                enabled = title.isNotBlank() || content.isNotBlank()
-            ) { Text("Save") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        }
-    )
-}
-
-@Composable
-private fun NoteCard(note: NoteEntity) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+private fun NoteCard(note: NoteEntity, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onClick
+    ) {
         Column(modifier = Modifier.padding(18.dp)) {
             Text(
                 text = note.title.ifBlank { "Untitled" },
