@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -29,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -75,9 +77,20 @@ class MainActivity : FragmentActivity() {
     @Composable
     private fun SecurityGate() {
         var recoveryMode by rememberSaveable { mutableStateOf(false) }
+        var newRecoveryCode by rememberSaveable { mutableStateOf<String?>(null) }
+
         when {
-            !security.isConfigured -> PinSetupScreen(security) { unlocked = true }
-            recoveryMode -> RecoveryScreen(security, onRecovered = { recoveryMode = false; unlocked = true }, onCancel = { recoveryMode = false })
+            !security.isConfigured -> PinSetupScreen(security) { recoveryCode ->
+                // Move to the home screen immediately after a valid PIN is created.
+                unlocked = true
+                // Show the one-time recovery code on top of the home screen.
+                newRecoveryCode = recoveryCode
+            }
+            recoveryMode -> RecoveryScreen(
+                security,
+                onRecovered = { recoveryMode = false; unlocked = true },
+                onCancel = { recoveryMode = false }
+            )
             !unlocked -> PinLockScreen(
                 security = security,
                 onUnlocked = { unlocked = true },
@@ -87,6 +100,20 @@ class MainActivity : FragmentActivity() {
                 onRecovery = { recoveryMode = true }
             )
             else -> DreamDiaryApp(diaryViewModel)
+        }
+
+        // The recovery code is still shown once, but it no longer blocks navigation.
+        newRecoveryCode?.let { code ->
+            AlertDialog(
+                onDismissRequest = { newRecoveryCode = null },
+                title = { Text("Save your recovery code") },
+                text = { Text("$code\n\nStore this code somewhere safe. It is required if you forget your PIN.") },
+                confirmButton = {
+                    TextButton(onClick = { newRecoveryCode = null }) {
+                        Text("I saved it")
+                    }
+                }
+            )
         }
     }
 
