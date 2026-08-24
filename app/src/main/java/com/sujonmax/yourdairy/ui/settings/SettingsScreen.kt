@@ -21,9 +21,11 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -32,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.sujonmax.yourdairy.BuildConfig
 import com.sujonmax.yourdairy.security.SecurityManager
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -49,26 +52,28 @@ fun SettingsScreen(
     var biometric by remember { mutableStateOf(security.biometricEnabled) }
 
     Scaffold(topBar = {
-        TopAppBar(
-            title = { Text("Settings") },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } }
-        )
+        TopAppBar(title = { Text("Settings") }, navigationIcon = {
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
+        })
     }) { padding ->
         Column(
             Modifier.padding(padding).padding(horizontal = 16.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text("Appearance", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
+            Text("Appearance", style = MaterialTheme.typography.titleMedium)
             ListItem(
                 leadingContent = { Icon(Icons.Default.DarkMode, null) },
                 headlineContent = { Text("Theme") },
                 supportingContent = { Text(themeMode.replaceFirstChar { it.uppercase() }) },
                 trailingContent = {
-                    androidx.compose.material3.Box {
-                        androidx.compose.material3.TextButton(onClick = { themeExpanded = true }) { Text("Change") }
+                    androidx.compose.foundation.layout.Box {
+                        TextButton(onClick = { themeExpanded = true }) { Text("Change") }
                         DropdownMenu(expanded = themeExpanded, onDismissRequest = { themeExpanded = false }) {
                             listOf("system", "light", "dark").forEach { mode ->
-                                DropdownMenuItem(text = { Text(mode.replaceFirstChar { it.uppercase() }) }, onClick = { onThemeModeChange(mode); themeExpanded = false })
+                                DropdownMenuItem(
+                                    text = { Text(mode.replaceFirstChar { it.uppercase() }) },
+                                    onClick = { onThemeModeChange(mode); themeExpanded = false }
+                                )
                             }
                         }
                     }
@@ -80,14 +85,14 @@ fun SettingsScreen(
                 supportingContent = { Text("${(fontScale * 100).toInt()}%") },
                 trailingContent = {
                     Row {
-                        androidx.compose.material3.TextButton(onClick = { onFontScaleChange((fontScale - .1f).coerceAtLeast(.8f)) }) { Text("−") }
-                        androidx.compose.material3.TextButton(onClick = { onFontScaleChange((fontScale + .1f).coerceAtMost(1.4f)) }) { Text("+") }
+                        TextButton(onClick = { onFontScaleChange((fontScale - .1f).coerceAtLeast(.8f)) }) { Text("−") }
+                        TextButton(onClick = { onFontScaleChange((fontScale + .1f).coerceAtMost(1.4f)) }) { Text("+") }
                     }
                 }
             )
 
             Spacer(Modifier.height(8.dp))
-            Text("Security", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
+            Text("Security", style = MaterialTheme.typography.titleMedium)
             ListItem(
                 leadingContent = { Icon(Icons.Default.Lock, null) },
                 headlineContent = { Text("Biometric unlock") },
@@ -98,14 +103,14 @@ fun SettingsScreen(
             )
 
             Spacer(Modifier.height(8.dp))
-            Text("About", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
+            Text("About", style = MaterialTheme.typography.titleMedium)
             ListItem(
                 leadingContent = { Icon(Icons.Default.Info, null) },
-                headlineContent = { Text("About Dream Diary") },
-                supportingContent = { Text("Version 1.0.0 • Create by sujonmax") },
+                headlineContent = { Text("App version") },
+                supportingContent = { Text("Version ${BuildConfig.VERSION_NAME} • Create by sujonmax") },
                 modifier = Modifier.fillMaxWidth()
             )
-            androidx.compose.material3.TextButton(onClick = onAbout, modifier = Modifier.fillMaxWidth()) { Text("Open About") }
+            TextButton(onClick = onAbout, modifier = Modifier.fillMaxWidth()) { Text("Open About") }
         }
     }
 }
