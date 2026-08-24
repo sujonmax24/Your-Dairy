@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -26,12 +25,15 @@ import androidx.compose.ui.unit.dp
 import com.sujonmax.yourdairy.security.SecurityManager
 
 @Composable
-fun PinSetupScreen(security: SecurityManager, onConfigured: () -> Unit) {
+fun PinSetupScreen(security: SecurityManager, onConfigured: (String) -> Unit) {
     var pin by remember { mutableStateOf("") }
     var confirm by remember { mutableStateOf("") }
-    var recovery by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
-    Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center) {
+
+    Column(
+        Modifier.fillMaxSize().padding(24.dp),
+        verticalArrangement = Arrangement.Center
+    ) {
         Text("Secure your diary", style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(8.dp))
         Text("Create a 4-digit PIN. A recovery code will be generated once.")
@@ -41,22 +43,24 @@ fun PinSetupScreen(security: SecurityManager, onConfigured: () -> Unit) {
         PinField("Confirm PIN", confirm) { if (it.length <= 4) confirm = it.filter(Char::isDigit) }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Spacer(Modifier.height(16.dp))
-        Button(onClick = {
-            error = when {
-                pin.length != 4 -> "PIN must contain 4 digits."
-                pin != confirm -> "PINs do not match."
-                else -> null
-            }
-            if (error == null) recovery = security.configurePin(pin)
-        }, modifier = Modifier.fillMaxWidth()) { Text("Create secure PIN") }
-    }
-    recovery?.let { code ->
-        AlertDialog(
-            onDismissRequest = {},
-            title = { Text("Save your recovery code") },
-            text = { Text("$code\n\nStore this code somewhere safe. It is required if you forget your PIN.") },
-            confirmButton = { TextButton(onClick = onConfigured) { Text("I saved it") } }
-        )
+        Button(
+            onClick = {
+                error = when {
+                    pin.length != 4 -> "PIN must contain 4 digits."
+                    pin != confirm -> "PINs do not match."
+                    else -> null
+                }
+                if (error == null) {
+                    // Configure first, then immediately leave the setup screen.
+                    // The recovery code is handed to MainActivity so it can be shown
+                    // once without blocking navigation to the home screen.
+                    onConfigured(security.configurePin(pin))
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Create secure PIN")
+        }
     }
 }
 
