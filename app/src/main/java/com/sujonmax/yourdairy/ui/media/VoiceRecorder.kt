@@ -1,17 +1,23 @@
 package com.sujonmax.yourdairy.ui.media
 
+import android.content.Context
 import android.media.MediaRecorder
 import android.os.Build
 import java.io.File
 
-class VoiceRecorder(private val outputFile: File) {
+class VoiceRecorder(
+    context: Context,
+    private val outputFile: File
+) {
+    private val appContext = context.applicationContext
     private var recorder: MediaRecorder? = null
 
     fun start(): Boolean {
         if (recorder != null) return false
         return runCatching {
+            outputFile.parentFile?.mkdirs()
             val r = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                MediaRecorder(outputFile.parentFile?.let { outputFile.context } ?: throw IllegalStateException("No context"))
+                MediaRecorder(appContext)
             } else {
                 @Suppress("DEPRECATION")
                 MediaRecorder()
@@ -23,18 +29,23 @@ class VoiceRecorder(private val outputFile: File) {
             r.prepare()
             r.start()
             recorder = r
+        }.onFailure {
+            recorder?.release()
+            recorder = null
+            outputFile.delete()
         }.isSuccess
     }
 
     fun stop(): File? {
         val r = recorder ?: return null
-        return runCatching {
+        return try {
             r.stop()
             r.reset()
             r.release()
             recorder = null
-            outputFile
-        }.getOrElse {
+            outputFile.takeIf { it.exists() && it.length() > 0L }
+        } catch (_: RuntimeException) {
+            runCatching { r.reset() }
             r.release()
             recorder = null
             outputFile.delete()
@@ -43,10 +54,10 @@ class VoiceRecorder(private val outputFile: File) {
     }
 
     fun cancel() {
-        recorder?.run {
-            runCatching { stop() }
-            reset()
-            release()
+        recorder?.let { r ->
+            runCatching { r.stop() }
+            runCatching { r.reset() }
+            r.release()
         }
         recorder = null
         outputFile.delete()
