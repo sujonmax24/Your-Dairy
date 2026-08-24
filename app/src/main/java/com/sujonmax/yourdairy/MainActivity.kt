@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Search
@@ -49,6 +50,7 @@ import com.sujonmax.yourdairy.ui.security.PinLockScreen
 import com.sujonmax.yourdairy.ui.security.PinSetupScreen
 import com.sujonmax.yourdairy.ui.security.RecoveryScreen
 import com.sujonmax.yourdairy.ui.theme.YourDairyTheme
+import com.sujonmax.yourdairy.ui.txt.TxtEditorScreen
 
 class MainActivity : FragmentActivity() {
     private val diaryViewModel: DiaryViewModel by viewModels {
@@ -92,11 +94,13 @@ class MainActivity : FragmentActivity() {
         var isEditorOpen by rememberSaveable { mutableStateOf(false) }
         var isAboutOpen by rememberSaveable { mutableStateOf(false) }
         var isManagementOpen by rememberSaveable { mutableStateOf(false) }
+        var isTxtEditorOpen by rememberSaveable { mutableStateOf(false) }
         val folders by viewModel.folders.collectAsStateWithLifecycle(initialValue = emptyList())
 
         when {
             isAboutOpen -> AboutScreen(onBack = { isAboutOpen = false })
             isManagementOpen -> ManagementScreen(viewModel = viewModel, onBack = { isManagementOpen = false })
+            isTxtEditorOpen -> TxtEditorScreen(onBack = { isTxtEditorOpen = false })
             isEditorOpen -> DiaryEditorScreen(
                 note = editingNote,
                 folders = folders,
@@ -116,14 +120,22 @@ class MainActivity : FragmentActivity() {
                 onNewNote = { editingNote = null; isEditorOpen = true },
                 onEditNote = { note -> editingNote = note; isEditorOpen = true },
                 onAbout = { isAboutOpen = true },
-                onManagement = { isManagementOpen = true }
+                onManagement = { isManagementOpen = true },
+                onTxtEditor = { isTxtEditorOpen = true }
             )
         }
     }
 }
 
 @Composable
-private fun DreamDiaryHome(viewModel: DiaryViewModel, onNewNote: () -> Unit, onEditNote: (NoteEntity) -> Unit, onAbout: () -> Unit, onManagement: () -> Unit) {
+private fun DreamDiaryHome(
+    viewModel: DiaryViewModel,
+    onNewNote: () -> Unit,
+    onEditNote: (NoteEntity) -> Unit,
+    onAbout: () -> Unit,
+    onManagement: () -> Unit,
+    onTxtEditor: () -> Unit
+) {
     val notes by viewModel.searchResults.collectAsStateWithLifecycle(initialValue = emptyList())
     val query by viewModel.query.collectAsStateWithLifecycle()
     var searchMode by rememberSaveable { mutableStateOf(false) }
@@ -134,6 +146,7 @@ private fun DreamDiaryHome(viewModel: DiaryViewModel, onNewNote: () -> Unit, onE
                 title = { Column { Text("Dream Diry", fontWeight = FontWeight.Bold); Text("create by sujonmax", style = MaterialTheme.typography.labelSmall) } },
                 actions = {
                     IconButton(onClick = onManagement) { Icon(Icons.Default.Favorite, contentDescription = "Favorites, folders and trash") }
+                    IconButton(onClick = onTxtEditor) { Icon(Icons.Default.Description, contentDescription = "TXT editor") }
                     IconButton(onClick = { searchMode = !searchMode }) { Icon(Icons.Default.Search, contentDescription = "Search diary") }
                     IconButton(onClick = onAbout) { Icon(Icons.Default.Info, contentDescription = "About Dream Diry") }
                 }
