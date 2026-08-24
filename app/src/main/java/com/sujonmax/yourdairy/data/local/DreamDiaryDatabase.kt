@@ -6,12 +6,13 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.sujonmax.yourdairy.data.local.dao.FolderDao
 import com.sujonmax.yourdairy.data.local.dao.NoteDao
+import com.sujonmax.yourdairy.data.local.entity.AttachmentEntity
 import com.sujonmax.yourdairy.data.local.entity.FolderEntity
 import com.sujonmax.yourdairy.data.local.entity.NoteEntity
 
 @Database(
-    entities = [NoteEntity::class, FolderEntity::class],
-    version = 1,
+    entities = [NoteEntity::class, FolderEntity::class, AttachmentEntity::class],
+    version = 2,
     exportSchema = false
 )
 abstract class DreamDiaryDatabase : RoomDatabase() {
