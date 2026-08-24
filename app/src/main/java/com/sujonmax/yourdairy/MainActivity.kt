@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -32,7 +33,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -51,20 +51,19 @@ import com.sujonmax.yourdairy.ui.management.ManagementScreen
 import com.sujonmax.yourdairy.ui.security.PinLockScreen
 import com.sujonmax.yourdairy.ui.security.PinSetupScreen
 import com.sujonmax.yourdairy.ui.security.RecoveryScreen
+import com.sujonmax.yourdairy.ui.settings.SettingsScreen
 import com.sujonmax.yourdairy.ui.theme.YourDairyTheme
 import com.sujonmax.yourdairy.ui.txt.TxtEditorScreen
 
 class MainActivity : FragmentActivity() {
-    private val diaryViewModel: DiaryViewModel by viewModels {
-        DiaryViewModelFactory((application as DiaryApplication).repository)
-    }
+    private val diaryViewModel: DiaryViewModel by viewModels { DiaryViewModelFactory((application as DiaryApplication).repository) }
     private lateinit var security: SecurityManager
     private var unlocked by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         security = SecurityManager(applicationContext)
-        setContent { YourDairyTheme { SecurityGate() } }
+        setContent { SecurityGate() }
     }
 
     override fun onStart() {
@@ -92,39 +91,57 @@ class MainActivity : FragmentActivity() {
 
     @Composable
     private fun DreamDiaryApp(viewModel: DiaryViewModel) {
-        var editingNote by remember { mutableStateOf<NoteEntity?>(null) }
-        var isEditorOpen by rememberSaveable { mutableStateOf(false) }
-        var isAboutOpen by rememberSaveable { mutableStateOf(false) }
-        var isManagementOpen by rememberSaveable { mutableStateOf(false) }
-        var isTxtEditorOpen by rememberSaveable { mutableStateOf(false) }
-        val folders by viewModel.folders.collectAsStateWithLifecycle(initialValue = emptyList())
+        val prefs = getSharedPreferences("dream_diary_settings", MODE_PRIVATE)
+        var themeMode by rememberSaveable { mutableStateOf(prefs.getString("theme_mode", "system") ?: "system") }
+        var fontScale by rememberSaveable { mutableStateOf(prefs.getFloat("font_scale", 1f)) }
+        val dark = when (themeMode) {
+            "dark" -> true
+            "light" -> false
+            else -> androidx.compose.foundation.isSystemInDarkTheme()
+        }
+        YourDairyTheme(darkTheme = dark, fontScale = fontScale) {
+            var editingNote by rememberSaveable { mutableStateOf<NoteEntity?>(null) }
+            var isEditorOpen by rememberSaveable { mutableStateOf(false) }
+            var isAboutOpen by rememberSaveable { mutableStateOf(false) }
+            var isManagementOpen by rememberSaveable { mutableStateOf(false) }
+            var isTxtEditorOpen by rememberSaveable { mutableStateOf(false) }
+            var isSettingsOpen by rememberSaveable { mutableStateOf(false) }
+            val folders by viewModel.folders.collectAsStateWithLifecycle(initialValue = emptyList())
 
-        when {
-            isAboutOpen -> AboutScreen(onBack = { isAboutOpen = false })
-            isManagementOpen -> ManagementScreen(viewModel = viewModel, onBack = { isManagementOpen = false })
-            isTxtEditorOpen -> TxtEditorScreen(onBack = { isTxtEditorOpen = false })
-            isEditorOpen -> DiaryEditorScreen(
-                note = editingNote,
-                folders = folders,
-                onBack = { isEditorOpen = false },
-                onSave = { note ->
-                    val existing = editingNote
-                    if (existing == null) {
-                        viewModel.saveNote(note.title, note.content, note.tags, note.folderId)
-                    } else {
-                        viewModel.updateNote(existing, note.title, note.content, note.tags, note.folderId)
+            when {
+                isSettingsOpen -> SettingsScreen(
+                    security = security,
+                    themeMode = themeMode,
+                    onThemeModeChange = { themeMode = it; prefs.edit().putString("theme_mode", it).apply() },
+                    fontScale = fontScale,
+                    onFontScaleChange = { fontScale = it; prefs.edit().putFloat("font_scale", it).apply() },
+                    onBack = { isSettingsOpen = false },
+                    onAbout = { isSettingsOpen = false; isAboutOpen = true }
+                )
+                isAboutOpen -> AboutScreen(onBack = { isAboutOpen = false })
+                isManagementOpen -> ManagementScreen(viewModel = viewModel, onBack = { isManagementOpen = false })
+                isTxtEditorOpen -> TxtEditorScreen(onBack = { isTxtEditorOpen = false })
+                isEditorOpen -> DiaryEditorScreen(
+                    note = editingNote,
+                    folders = folders,
+                    onBack = { isEditorOpen = false },
+                    onSave = { note ->
+                        val existing = editingNote
+                        if (existing == null) viewModel.saveNote(note.title, note.content, note.tags, note.folderId)
+                        else viewModel.updateNote(existing, note.title, note.content, note.tags, note.folderId)
+                        isEditorOpen = false
                     }
-                    isEditorOpen = false
-                }
-            )
-            else -> DreamDiaryHome(
-                viewModel = viewModel,
-                onNewNote = { editingNote = null; isEditorOpen = true },
-                onEditNote = { note -> editingNote = note; isEditorOpen = true },
-                onAbout = { isAboutOpen = true },
-                onManagement = { isManagementOpen = true },
-                onTxtEditor = { isTxtEditorOpen = true }
-            )
+                )
+                else -> DreamDiaryHome(
+                    viewModel = viewModel,
+                    onNewNote = { editingNote = null; isEditorOpen = true },
+                    onEditNote = { note -> editingNote = note; isEditorOpen = true },
+                    onAbout = { isAboutOpen = true },
+                    onManagement = { isManagementOpen = true },
+                    onTxtEditor = { isTxtEditorOpen = true },
+                    onSettings = { isSettingsOpen = true }
+                )
+            }
         }
     }
 }
@@ -136,7 +153,8 @@ private fun DreamDiaryHome(
     onEditNote: (NoteEntity) -> Unit,
     onAbout: () -> Unit,
     onManagement: () -> Unit,
-    onTxtEditor: () -> Unit
+    onTxtEditor: () -> Unit,
+    onSettings: () -> Unit
 ) {
     val notes by viewModel.searchResults.collectAsStateWithLifecycle(initialValue = emptyList())
     val query by viewModel.query.collectAsStateWithLifecycle()
@@ -145,12 +163,13 @@ private fun DreamDiaryHome(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Column { Text("Dream Diry", fontWeight = FontWeight.Bold); Text("create by sujonmax", style = MaterialTheme.typography.labelSmall) } },
+                title = { Column { Text("Dream Diary", fontWeight = FontWeight.Bold); Text("create by sujonmax", style = MaterialTheme.typography.labelSmall) } },
                 actions = {
                     IconButton(onClick = onManagement) { Icon(Icons.Default.Favorite, contentDescription = "Favorites, folders and trash") }
                     IconButton(onClick = onTxtEditor) { Icon(Icons.Default.Description, contentDescription = "TXT editor") }
                     IconButton(onClick = { searchMode = !searchMode }) { Icon(Icons.Default.Search, contentDescription = "Search diary") }
-                    IconButton(onClick = onAbout) { Icon(Icons.Default.Info, contentDescription = "About Dream Diry") }
+                    IconButton(onClick = onAbout) { Icon(Icons.Default.Info, contentDescription = "About Dream Diary") }
+                    IconButton(onClick = onSettings) { Icon(Icons.Default.Settings, contentDescription = "Settings") }
                 }
             )
         },
@@ -164,9 +183,7 @@ private fun DreamDiaryHome(
             Text("Recent memories", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(8.dp))
             if (notes.isEmpty()) Text("No diary entries yet. Tap + to write your first memory.", Modifier.padding(vertical = 24.dp))
-            else LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize()) {
-                items(notes, key = { it.id }) { note -> NoteCard(note, onEditNote) }
-            }
+            else LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize()) { items(notes, key = { it.id }) { note -> NoteCard(note, onEditNote) } }
         }
     }
 }
