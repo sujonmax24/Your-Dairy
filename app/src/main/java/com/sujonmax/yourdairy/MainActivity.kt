@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
 package com.sujonmax.yourdairy
 
 import android.os.Bundle
@@ -171,7 +173,7 @@ private fun DreamDiaryHome(
 
 @Composable
 private fun NoteCard(note: NoteEntity, onClick: (NoteEntity) -> Unit) {
-    Card(Modifier.fillMaxWidth(), onClick = { onClick(note) }) {
+    Card(onClick = { onClick(note) }, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp)) {
             Text(note.title.ifBlank { "Untitled" }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(6.dp))
