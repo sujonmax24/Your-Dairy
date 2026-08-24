@@ -33,6 +33,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -100,7 +101,7 @@ class MainActivity : FragmentActivity() {
             else -> androidx.compose.foundation.isSystemInDarkTheme()
         }
         YourDairyTheme(darkTheme = dark, fontScale = fontScale) {
-            var editingNote by rememberSaveable { mutableStateOf<NoteEntity?>(null) }
+            var editingNote by remember { mutableStateOf<NoteEntity?>(null) }
             var isEditorOpen by rememberSaveable { mutableStateOf(false) }
             var isAboutOpen by rememberSaveable { mutableStateOf(false) }
             var isManagementOpen by rememberSaveable { mutableStateOf(false) }
