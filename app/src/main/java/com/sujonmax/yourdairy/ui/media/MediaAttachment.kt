@@ -9,10 +9,11 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 
 /**
- * Small, reusable media attachment actions for the diary editor.
- * The actual attachment persistence is intentionally kept outside the UI.
+ * Reusable media attachment actions for the diary editor.
+ * The actual picker/recorder implementation stays in the editor host.
  */
 @Composable
 fun MediaAttachmentActions(
@@ -21,15 +22,30 @@ fun MediaAttachmentActions(
     onLocationRequested: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(androidx.compose.ui.unit.dp(8f))) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(androidx.compose.ui.unit.dp(8f))) {
-            Button(onClick = { /* Image picker is wired by the editor host. */ }, modifier = Modifier.weight(1f)) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Button(
+                onClick = { /* Image picker is wired by the editor host. */ },
+                modifier = Modifier.weight(1f)
+            ) {
                 Text("Image")
             }
-            Button(onClick = { /* Audio recorder is wired by the editor host. */ }, modifier = Modifier.weight(1f)) {
+            Button(
+                onClick = { /* Audio recorder is wired by the editor host. */ },
+                modifier = Modifier.weight(1f)
+            ) {
                 Text("Voice")
             }
-            Button(onClick = onLocationRequested, modifier = Modifier.weight(1f)) {
+            Button(
+                onClick = onLocationRequested,
+                modifier = Modifier.weight(1f)
+            ) {
                 Text("Location")
             }
         }
