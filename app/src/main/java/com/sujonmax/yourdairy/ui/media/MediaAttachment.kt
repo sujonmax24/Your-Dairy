@@ -1,6 +1,5 @@
 package com.sujonmax.yourdairy.ui.media
 
-import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,14 +10,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
-/**
- * Reusable media attachment actions for the diary editor.
- * The actual picker/recorder implementation stays in the editor host.
- */
+/** Reusable attachment actions. Hosts provide the actual picker/recorder flows. */
 @Composable
 fun MediaAttachmentActions(
-    onImageSelected: (Uri) -> Unit,
-    onAudioSelected: (Uri) -> Unit,
+    onImageRequested: () -> Unit,
+    onAudioRequested: () -> Unit,
     onLocationRequested: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -30,22 +26,13 @@ fun MediaAttachmentActions(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Button(
-                onClick = { /* Image picker is wired by the editor host. */ },
-                modifier = Modifier.weight(1f)
-            ) {
+            Button(onClick = onImageRequested, modifier = Modifier.weight(1f)) {
                 Text("Image")
             }
-            Button(
-                onClick = { /* Audio recorder is wired by the editor host. */ },
-                modifier = Modifier.weight(1f)
-            ) {
+            Button(onClick = onAudioRequested, modifier = Modifier.weight(1f)) {
                 Text("Voice")
             }
-            Button(
-                onClick = onLocationRequested,
-                modifier = Modifier.weight(1f)
-            ) {
+            Button(onClick = onLocationRequested, modifier = Modifier.weight(1f)) {
                 Text("Location")
             }
         }
