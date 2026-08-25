@@ -1,5 +1,8 @@
 package com.sujonmax.yourdairy.ui.diary
 
+import android.Manifest
+import android.content.Context
+import android.media.MediaPlayer
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.horizontalScroll
@@ -30,6 +33,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,6 +46,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import com.sujonmax.yourdairy.data.local.entity.FolderEntity
 import com.sujonmax.yourdairy.data.local.entity.NoteEntity
+import com.sujonmax.yourdairy.ui.media.AudioRecorderController
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.AttachFile
@@ -49,6 +55,11 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Delete
+import java.io.File
+import kotlinx.coroutines.delay
 
 private val memoryMoods = listOf(
     "😊 Happy", "😍 Loved", "😢 Sad", "😡 Angry",
@@ -63,6 +74,7 @@ fun DiaryEditorScreen(
     onBack: () -> Unit,
     onSave: (NoteEntity) -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     var title by rememberSaveable(note?.id) { mutableStateOf(note?.title.orEmpty()) }
     var body by remember(note?.id) { mutableStateOf(TextFieldValue(note?.content.orEmpty())) }
     var tags by rememberSaveable(note?.id) { mutableStateOf(note?.tags.orEmpty()) }
@@ -75,6 +87,34 @@ fun DiaryEditorScreen(
     var showFolderDialog by rememberSaveable { mutableStateOf(false) }
     var showMoodDialog by rememberSaveable { mutableStateOf(false) }
     var showLocationDialog by rememberSaveable { mutableStateOf(false) }
+    var showRecorderDialog by rememberSaveable { mutableStateOf(false) }
+    var isRecording by remember { mutableStateOf(false) }
+    var recordingSeconds by remember { mutableStateOf(0) }
+    var playingAudio by remember { mutableStateOf<String?>(null) }
+
+    val recorderController = remember { AudioRecorderController(context.applicationContext) }
+    val mediaPlayer = remember { MediaPlayer() }
+    val audioPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) showRecorderDialog = true
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            recorderController.cancel()
+            runCatching { mediaPlayer.stop() }
+            mediaPlayer.release()
+        }
+    }
+
+    LaunchedEffect(isRecording) {
+        if (isRecording) {
+            recordingSeconds = 0
+            while (isRecording) {
+                delay(1000)
+                recordingSeconds++
+            }
+        }
+    }
 
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -103,6 +143,52 @@ fun DiaryEditorScreen(
         body = TextFieldValue(updated, TextRange(start + prefix.length, start + prefix.length + selected.length))
     }
 
+    fun startRecording() {
+        val dir = File(context.filesDir, "voice_memories")
+        val file = File(dir, "voice_${System.currentTimeMillis()}.m4a")
+        if (recorderController.start(file)) {
+            isRecording = true
+        }
+    }
+
+    fun stopRecording() {
+        val file = recorderController.stop()
+        isRecording = false
+        if (file != null) {
+            audioUris = listOf(audioUris, file.absolutePath).filter { it.isNotBlank() }.joinToString("|")
+            showRecorderDialog = false
+        }
+    }
+
+    fun deleteAudio(audio: String) {
+        if (!audio.startsWith("content://")) File(audio).delete()
+        audioUris = audioUris.split('|').filter { it.isNotBlank() && it != audio }.joinToString("|")
+        if (playingAudio == audio) {
+            runCatching { mediaPlayer.stop() }
+            playingAudio = null
+        }
+    }
+
+    fun togglePlayback(audio: String) {
+        if (playingAudio == audio) {
+            runCatching { mediaPlayer.stop() }
+            playingAudio = null
+            return
+        }
+        runCatching {
+            mediaPlayer.reset()
+            if (audio.startsWith("content://")) {
+                context.contentResolver.openFileDescriptor(android.net.Uri.parse(audio), "r")?.use { mediaPlayer.setDataSource(it.fileDescriptor) }
+            } else {
+                mediaPlayer.setDataSource(audio)
+            }
+            mediaPlayer.setOnCompletionListener { playingAudio = null }
+            mediaPlayer.prepare()
+            mediaPlayer.start()
+            playingAudio = audio
+        }.onFailure { playingAudio = null }
+    }
+
     val selectedFolder = folders.firstOrNull { it.id == folderId }
     val saveEnabled = title.isNotBlank() || body.text.isNotBlank()
 
@@ -115,131 +201,70 @@ fun DiaryEditorScreen(
                     IconButton(
                         onClick = {
                             onSave((note ?: NoteEntity()).copy(
-                                title = title.trim(),
-                                content = body.text,
-                                tags = tags.trim(),
-                                folderId = folderId,
-                                mood = mood.ifBlank { null },
-                                location = location.trim().ifBlank { null },
-                                imageUris = imageUris,
-                                audioUris = audioUris
+                                title = title.trim(), content = body.text, tags = tags.trim(), folderId = folderId,
+                                mood = mood.ifBlank { null }, location = location.trim().ifBlank { null },
+                                imageUris = imageUris, audioUris = audioUris
                             ))
-                        },
-                        enabled = saveEnabled
+                        }, enabled = saveEnabled
                     ) { Icon(Icons.Default.Check, "Save memory") }
                 }
             )
         }
     ) { padding ->
-        Column(
-            Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            OutlinedTextField(
-                value = title, onValueChange = { title = it }, modifier = Modifier.fillMaxWidth(),
-                singleLine = true, label = { Text("Memory title") }, shape = RoundedCornerShape(14.dp)
-            )
-
+        Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutlinedTextField(value = title, onValueChange = { title = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("Memory title") }, shape = RoundedCornerShape(14.dp))
             Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("How did you feel?", style = MaterialTheme.typography.labelLarge)
-                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        AssistChip(
-                            onClick = { showMoodDialog = true },
-                            label = { Text(mood.ifBlank { "Choose mood" }) }
-                        )
+                    AssistChip(onClick = { showMoodDialog = true }, label = { Text(mood.ifBlank { "Choose mood" }) })
+                }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { imagePicker.launch(arrayOf("image/*")) }, modifier = Modifier.weight(1f)) { Icon(Icons.Default.Image, null); Spacer(Modifier.padding(2.dp)); Text("Photo") }
+                OutlinedButton(onClick = { audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO) }, modifier = Modifier.weight(1f)) { Icon(Icons.Default.Mic, null); Spacer(Modifier.padding(2.dp)); Text("Record") }
+                OutlinedButton(onClick = { audioPicker.launch(arrayOf("audio/*")) }, modifier = Modifier.weight(1f)) { Icon(Icons.Default.AttachFile, null); Spacer(Modifier.padding(2.dp)); Text("Audio") }
+            }
+            val audioList = audioUris.split('|').filter { it.isNotBlank() }
+            if (imageUris.isNotBlank() || audioList.isNotEmpty()) {
+                Text("Attachments: ${(if (imageUris.isBlank()) 0 else imageUris.split('|').size)} photo(s), ${audioList.size} audio file(s)", style = MaterialTheme.typography.labelMedium)
+                audioList.forEachIndexed { index, audio ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("Voice ${index + 1}", modifier = Modifier.weight(1f), maxLines = 1)
+                        IconButton(onClick = { togglePlayback(audio) }) { Icon(if (playingAudio == audio) Icons.Default.Stop else Icons.Default.PlayArrow, "Play voice") }
+                        IconButton(onClick = { deleteAudio(audio) }) { Icon(Icons.Default.Delete, "Delete voice") }
                     }
                 }
             }
-
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { imagePicker.launch(arrayOf("image/*")) }, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.Image, null); Spacer(Modifier.padding(2.dp)); Text("Photo")
-                }
-                OutlinedButton(onClick = { audioPicker.launch(arrayOf("audio/*")) }, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.Mic, null); Spacer(Modifier.padding(2.dp)); Text("Voice")
-                }
+                OutlinedButton(onClick = { showLocationDialog = true }, modifier = Modifier.weight(1f)) { Icon(Icons.Default.Place, null); Spacer(Modifier.padding(2.dp)); Text(location.ifBlank { "Add location" }, maxLines = 1) }
+                OutlinedButton(onClick = { showFolderDialog = true }, modifier = Modifier.weight(1f)) { Icon(Icons.Default.Folder, null); Spacer(Modifier.padding(2.dp)); Text(selectedFolder?.name ?: "No folder", maxLines = 1) }
             }
-            if (imageUris.isNotBlank() || audioUris.isNotBlank()) {
-                Text("Attachments: ${(if (imageUris.isBlank()) 0 else imageUris.split('|').size)} photo(s), ${(if (audioUris.isBlank()) 0 else audioUris.split('|').size)} audio file(s)", style = MaterialTheme.typography.labelMedium)
-            }
-
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { showLocationDialog = true }, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.Place, null); Spacer(Modifier.padding(2.dp)); Text(location.ifBlank { "Add location" }, maxLines = 1)
-                }
-                OutlinedButton(onClick = { showFolderDialog = true }, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.Folder, null); Spacer(Modifier.padding(2.dp)); Text(selectedFolder?.name ?: "No folder", maxLines = 1)
-                }
-            }
-
-            OutlinedTextField(
-                value = tags, onValueChange = { tags = it }, modifier = Modifier.fillMaxWidth(),
-                singleLine = true, label = { Text("Tags (comma separated)") }
-            )
-
+            OutlinedTextField(value = tags, onValueChange = { tags = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("Tags (comma separated)") })
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                TextButton(onClick = { wrapSelection("**") }) { Text("Bold") }
-                TextButton(onClick = { wrapSelection("_") }) { Text("Italic") }
-                TextButton(onClick = { wrapSelection("__") }) { Text("Underline") }
-                TextButton(onClick = { insertAtSelection("• ") }) { Text("Bullet") }
-                TextButton(onClick = { insertAtSelection("1. ") }) { Text("Number") }
-                TextButton(onClick = { insertAtSelection("# ") }) { Text("Heading") }
-                TextButton(onClick = { insertAtSelection("> ") }) { Text("Quote") }
+                TextButton(onClick = { wrapSelection("**") }) { Text("Bold") }; TextButton(onClick = { wrapSelection("_") }) { Text("Italic") }; TextButton(onClick = { wrapSelection("__") }) { Text("Underline") }
+                TextButton(onClick = { insertAtSelection("• ") }) { Text("Bullet") }; TextButton(onClick = { insertAtSelection("1. ") }) { Text("Number") }; TextButton(onClick = { insertAtSelection("# ") }) { Text("Heading") }; TextButton(onClick = { insertAtSelection("> ") }) { Text("Quote") }
                 TextButton(onClick = { showTableDialog = true }) { Icon(Icons.Default.AttachFile, null); Text("Table") }
             }
             HorizontalDivider()
-            BasicTextField(
-                value = body, onValueChange = { body = it },
-                modifier = Modifier.fillMaxWidth().weight(1f),
-                textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onBackground),
-                decorationBox = { innerTextField ->
-                    if (body.text.isEmpty()) Text("Write your memory...", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    innerTextField()
-                }
-            )
+            BasicTextField(value = body, onValueChange = { body = it }, modifier = Modifier.fillMaxWidth().weight(1f), textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onBackground), decorationBox = { innerTextField -> if (body.text.isEmpty()) Text("Write your memory...", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant); innerTextField() })
         }
     }
 
-    if (showMoodDialog) {
+    if (showRecorderDialog) {
         AlertDialog(
-            onDismissRequest = { showMoodDialog = false },
-            title = { Text("Choose your mood") },
-            text = { Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                memoryMoods.forEach { option ->
-                    TextButton(onClick = { mood = option; showMoodDialog = false }, modifier = Modifier.fillMaxWidth()) { Text(option) }
-                }
+            onDismissRequest = { if (!isRecording) showRecorderDialog = false },
+            title = { Text(if (isRecording) "Recording voice memory" else "Voice memory") },
+            text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(if (isRecording) "Recording: ${recordingSeconds / 60}:${(recordingSeconds % 60).toString().padStart(2, '0')}" else "Record a private voice memory.")
+                if (isRecording) Text("Tap Stop when you are finished.")
             } },
-            confirmButton = { TextButton(onClick = { showMoodDialog = false }) { Text("Close") } }
+            confirmButton = { Button(onClick = { if (isRecording) stopRecording() else startRecording() }) { Text(if (isRecording) "Stop & Save" else "Start Recording") } },
+            dismissButton = { if (!isRecording) TextButton(onClick = { showRecorderDialog = false }) { Text("Cancel") } else TextButton(onClick = { recorderController.cancel(); isRecording = false; showRecorderDialog = false }) { Text("Discard") } }
         )
     }
 
-    if (showLocationDialog) {
-        AlertDialog(
-            onDismissRequest = { showLocationDialog = false },
-            title = { Text("Memory location") },
-            text = {
-                OutlinedTextField(value = location, onValueChange = { location = it }, label = { Text("Place or location") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            },
-            confirmButton = { Button(onClick = { showLocationDialog = false }) { Text("Save") } },
-            dismissButton = { TextButton(onClick = { location = ""; showLocationDialog = false }) { Text("Clear") } }
-        )
-    }
-
-    if (showFolderDialog) {
-        AlertDialog(
-            onDismissRequest = { showFolderDialog = false },
-            title = { Text("Choose folder") },
-            text = { Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                TextButton(onClick = { folderId = null; showFolderDialog = false }, modifier = Modifier.fillMaxWidth()) { Text("No folder") }
-                folders.forEach { folder -> TextButton(onClick = { folderId = folder.id; showFolderDialog = false }, modifier = Modifier.fillMaxWidth()) { Text(folder.name) } }
-                if (folders.isEmpty()) Text("Create a folder from My Diary first.")
-            } },
-            confirmButton = { TextButton(onClick = { showFolderDialog = false }) { Text("Close") } }
-        )
-    }
-
-    if (showTableDialog) {
-        TableEditorDialog(onDismiss = { showTableDialog = false }, onSave = { table -> insertAtSelection(table); showTableDialog = false })
-    }
+    if (showMoodDialog) AlertDialog(onDismissRequest = { showMoodDialog = false }, title = { Text("Choose your mood") }, text = { Column(verticalArrangement = Arrangement.spacedBy(4.dp)) { memoryMoods.forEach { option -> TextButton(onClick = { mood = option; showMoodDialog = false }, modifier = Modifier.fillMaxWidth()) { Text(option) } } } }, confirmButton = { TextButton(onClick = { showMoodDialog = false }) { Text("Close") } })
+    if (showLocationDialog) AlertDialog(onDismissRequest = { showLocationDialog = false }, title = { Text("Memory location") }, text = { OutlinedTextField(value = location, onValueChange = { location = it }, label = { Text("Place or location") }, singleLine = true, modifier = Modifier.fillMaxWidth()) }, confirmButton = { Button(onClick = { showLocationDialog = false }) { Text("Save") } }, dismissButton = { TextButton(onClick = { location = ""; showLocationDialog = false }) { Text("Clear") } })
+    if (showFolderDialog) AlertDialog(onDismissRequest = { showFolderDialog = false }, title = { Text("Choose folder") }, text = { Column(verticalArrangement = Arrangement.spacedBy(4.dp)) { TextButton(onClick = { folderId = null; showFolderDialog = false }, modifier = Modifier.fillMaxWidth()) { Text("No folder") }; folders.forEach { folder -> TextButton(onClick = { folderId = folder.id; showFolderDialog = false }, modifier = Modifier.fillMaxWidth()) { Text(folder.name) } }; if (folders.isEmpty()) Text("Create a folder from My Diary first.") } }, confirmButton = { TextButton(onClick = { showFolderDialog = false }) { Text("Close") } })
+    if (showTableDialog) TableEditorDialog(onDismiss = { showTableDialog = false }, onSave = { table -> insertAtSelection(table); showTableDialog = false })
 }
