@@ -29,42 +29,29 @@ class DiaryViewModel(
         if (text.isBlank()) repository.notes else repository.search(text)
     }
 
-    fun setQuery(value: String) {
-        _query.value = value
-    }
+    fun setQuery(value: String) { _query.value = value }
 
-    fun saveNote(title: String, content: String, tags: String = "", folderId: Long? = null) {
+    fun saveNote(note: NoteEntity) {
         viewModelScope.launch {
             val now = System.currentTimeMillis()
             repository.saveNote(
-                NoteEntity(
-                    title = title.trim(),
-                    content = content,
-                    tags = tags.trim(),
-                    folderId = folderId,
-                    createdAt = now,
-                    updatedAt = now
-                )
+                if (note.id == 0L) note.copy(createdAt = now, updatedAt = now)
+                else note.copy(updatedAt = now)
             )
         }
+    }
+
+    fun saveNote(title: String, content: String, tags: String = "", folderId: Long? = null) {
+        saveNote(NoteEntity(title = title, content = content, tags = tags, folderId = folderId))
     }
 
     fun updateNote(note: NoteEntity, title: String, content: String, tags: String = "", folderId: Long? = null) {
-        viewModelScope.launch {
-            repository.saveNote(
-                note.copy(
-                    title = title.trim(),
-                    content = content,
-                    tags = tags.trim(),
-                    folderId = folderId,
-                    updatedAt = System.currentTimeMillis()
-                )
-            )
-        }
+        saveNote(note.copy(title = title, content = content, tags = tags, folderId = folderId))
     }
 
-    fun toggleFavorite(note: NoteEntity) =
-        viewModelScope.launch { repository.setFavorite(note.id, !note.isFavorite) }
+    fun toggleFavorite(note: NoteEntity) = viewModelScope.launch {
+        repository.setFavorite(note.id, !note.isFavorite)
+    }
 
     fun createFolder(name: String) {
         if (name.isBlank()) return
