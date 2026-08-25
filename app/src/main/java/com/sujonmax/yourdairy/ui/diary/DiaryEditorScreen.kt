@@ -5,6 +5,7 @@ import android.content.Context
 import android.media.MediaPlayer
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -41,6 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
@@ -66,6 +68,28 @@ private val memoryMoods = listOf(
     "😰 Anxious", "😴 Tired", "🤩 Excited", "😐 Normal"
 )
 
+private val memoryBackgrounds = listOf(
+    "default" to "Default",
+    "sky" to "Sky",
+    "mint" to "Mint",
+    "peach" to "Peach",
+    "rose" to "Rose",
+    "lavender" to "Lavender",
+    "sunset" to "Sunset",
+    "night" to "Night"
+)
+
+private fun memoryBackgroundColor(key: String): Color = when (key) {
+    "sky" -> Color(0xFFEAF5FF)
+    "mint" -> Color(0xFFEAF8F0)
+    "peach" -> Color(0xFFFFF0E7)
+    "rose" -> Color(0xFFFFEAF0)
+    "lavender" -> Color(0xFFF0ECFF)
+    "sunset" -> Color(0xFFFFE8D6)
+    "night" -> Color(0xFF172033)
+    else -> Color.Transparent
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DiaryEditorScreen(
@@ -83,10 +107,12 @@ fun DiaryEditorScreen(
     var location by rememberSaveable(note?.id) { mutableStateOf(note?.location.orEmpty()) }
     var imageUris by rememberSaveable(note?.id) { mutableStateOf(note?.imageUris.orEmpty()) }
     var audioUris by rememberSaveable(note?.id) { mutableStateOf(note?.audioUris.orEmpty()) }
+    var backgroundKey by rememberSaveable(note?.id) { mutableStateOf(note?.backgroundKey ?: "default") }
     var showTableDialog by rememberSaveable { mutableStateOf(false) }
     var showFolderDialog by rememberSaveable { mutableStateOf(false) }
     var showMoodDialog by rememberSaveable { mutableStateOf(false) }
     var showLocationDialog by rememberSaveable { mutableStateOf(false) }
+    var showBackgroundDialog by rememberSaveable { mutableStateOf(false) }
     var showRecorderDialog by rememberSaveable { mutableStateOf(false) }
     var isRecording by remember { mutableStateOf(false) }
     var recordingSeconds by remember { mutableStateOf(0) }
@@ -117,14 +143,10 @@ fun DiaryEditorScreen(
     }
 
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) {
-            imageUris = listOf(imageUris, uri.toString()).filter { it.isNotBlank() }.joinToString("|")
-        }
+        if (uri != null) imageUris = listOf(imageUris, uri.toString()).filter { it.isNotBlank() }.joinToString("|")
     }
     val audioPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) {
-            audioUris = listOf(audioUris, uri.toString()).filter { it.isNotBlank() }.joinToString("|")
-        }
+        if (uri != null) audioUris = listOf(audioUris, uri.toString()).filter { it.isNotBlank() }.joinToString("|")
     }
 
     fun insertAtSelection(text: String) {
@@ -146,9 +168,7 @@ fun DiaryEditorScreen(
     fun startRecording() {
         val dir = File(context.filesDir, "voice_memories")
         val file = File(dir, "voice_${System.currentTimeMillis()}.m4a")
-        if (recorderController.start(file)) {
-            isRecording = true
-        }
+        if (recorderController.start(file)) isRecording = true
     }
 
     fun stopRecording() {
@@ -179,9 +199,7 @@ fun DiaryEditorScreen(
             mediaPlayer.reset()
             if (audio.startsWith("content://")) {
                 context.contentResolver.openFileDescriptor(android.net.Uri.parse(audio), "r")?.use { mediaPlayer.setDataSource(it.fileDescriptor) }
-            } else {
-                mediaPlayer.setDataSource(audio)
-            }
+            } else mediaPlayer.setDataSource(audio)
             mediaPlayer.setOnCompletionListener { playingAudio = null }
             mediaPlayer.prepare()
             mediaPlayer.start()
@@ -191,6 +209,8 @@ fun DiaryEditorScreen(
 
     val selectedFolder = folders.firstOrNull { it.id == folderId }
     val saveEnabled = title.isNotBlank() || body.text.isNotBlank()
+    val pageBackground = memoryBackgroundColor(backgroundKey)
+    val selectedBackgroundName = memoryBackgrounds.firstOrNull { it.first == backgroundKey }?.second ?: "Default"
 
     Scaffold(
         topBar = {
@@ -203,7 +223,7 @@ fun DiaryEditorScreen(
                             onSave((note ?: NoteEntity()).copy(
                                 title = title.trim(), content = body.text, tags = tags.trim(), folderId = folderId,
                                 mood = mood.ifBlank { null }, location = location.trim().ifBlank { null },
-                                imageUris = imageUris, audioUris = audioUris
+                                imageUris = imageUris, audioUris = audioUris, backgroundKey = backgroundKey
                             ))
                         }, enabled = saveEnabled
                     ) { Icon(Icons.Default.Check, "Save memory") }
@@ -211,12 +231,16 @@ fun DiaryEditorScreen(
             )
         }
     ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(
+            Modifier.fillMaxSize().background(pageBackground).padding(padding).padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
             OutlinedTextField(value = title, onValueChange = { title = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("Memory title") }, shape = RoundedCornerShape(14.dp))
             Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("How did you feel?", style = MaterialTheme.typography.labelLarge)
                     AssistChip(onClick = { showMoodDialog = true }, label = { Text(mood.ifBlank { "Choose mood" }) })
+                    OutlinedButton(onClick = { showBackgroundDialog = true }) { Text("🎨 Background: $selectedBackgroundName") }
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -241,13 +265,47 @@ fun DiaryEditorScreen(
             }
             OutlinedTextField(value = tags, onValueChange = { tags = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("Tags (comma separated)") })
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                TextButton(onClick = { wrapSelection("**") }) { Text("Bold") }; TextButton(onClick = { wrapSelection("_") }) { Text("Italic") }; TextButton(onClick = { wrapSelection("__") }) { Text("Underline") }
-                TextButton(onClick = { insertAtSelection("• ") }) { Text("Bullet") }; TextButton(onClick = { insertAtSelection("1. ") }) { Text("Number") }; TextButton(onClick = { insertAtSelection("# ") }) { Text("Heading") }; TextButton(onClick = { insertAtSelection("> ") }) { Text("Quote") }
+                TextButton(onClick = { wrapSelection("**") }) { Text("Bold") }
+                TextButton(onClick = { wrapSelection("_") }) { Text("Italic") }
+                TextButton(onClick = { wrapSelection("__") }) { Text("Underline") }
+                TextButton(onClick = { insertAtSelection("• ") }) { Text("Bullet") }
+                TextButton(onClick = { insertAtSelection("1. ") }) { Text("Number") }
+                TextButton(onClick = { insertAtSelection("# ") }) { Text("Heading") }
+                TextButton(onClick = { insertAtSelection("> ") }) { Text("Quote") }
                 TextButton(onClick = { showTableDialog = true }) { Icon(Icons.Default.AttachFile, null); Text("Table") }
             }
             HorizontalDivider()
-            BasicTextField(value = body, onValueChange = { body = it }, modifier = Modifier.fillMaxWidth().weight(1f), textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onBackground), decorationBox = { innerTextField -> if (body.text.isEmpty()) Text("Write your memory...", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant); innerTextField() })
+            BasicTextField(
+                value = body,
+                onValueChange = { body = it },
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                textStyle = MaterialTheme.typography.bodyLarge.copy(color = if (backgroundKey == "night") Color.White else MaterialTheme.colorScheme.onBackground),
+                decorationBox = { innerTextField ->
+                    if (body.text.isEmpty()) Text("Write your memory...", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    innerTextField()
+                }
+            )
         }
+    }
+
+    if (showBackgroundDialog) {
+        AlertDialog(
+            onDismissRequest = { showBackgroundDialog = false },
+            title = { Text("Choose memory background") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    memoryBackgrounds.forEach { (key, label) ->
+                        val selected = key == backgroundKey
+                        Button(
+                            onClick = { backgroundKey = key; showBackgroundDialog = false },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text(if (selected) "✓ $label" else label) }
+                    }
+                    Text("This background is saved only for this memory.", style = MaterialTheme.typography.bodySmall)
+                }
+            },
+            confirmButton = { TextButton(onClick = { showBackgroundDialog = false }) { Text("Close") } }
+        )
     }
 
     if (showRecorderDialog) {
