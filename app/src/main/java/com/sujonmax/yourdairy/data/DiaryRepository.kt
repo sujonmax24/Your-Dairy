@@ -28,6 +28,8 @@ class DiaryRepository(
 
     suspend fun setFavorite(id: Long, favorite: Boolean) = noteDao.setFavorite(id, favorite)
 
+    suspend fun moveNoteToFolder(id: Long, folderId: Long?) = noteDao.moveToFolder(id, folderId)
+
     suspend fun createFolder(name: String): Long =
         folderDao.insert(FolderEntity(name = name.trim()))
 
