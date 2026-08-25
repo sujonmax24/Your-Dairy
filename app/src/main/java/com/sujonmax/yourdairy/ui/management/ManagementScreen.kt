@@ -49,6 +49,7 @@ fun ManagementScreen(viewModel: DiaryViewModel, onBack: () -> Unit) {
     val trash by viewModel.trash.collectAsStateWithLifecycle(initialValue = emptyList())
     val favorites by viewModel.favorites.collectAsStateWithLifecycle(initialValue = emptyList())
     val folders by viewModel.folders.collectAsStateWithLifecycle(initialValue = emptyList())
+    val notes by viewModel.notes.collectAsStateWithLifecycle(initialValue = emptyList())
 
     Scaffold(
         topBar = {
@@ -62,9 +63,7 @@ fun ManagementScreen(viewModel: DiaryViewModel, onBack: () -> Unit) {
             )
         }
     ) { padding ->
-        Column(
-            Modifier.fillMaxSize().padding(padding)
-        ) {
+        Column(Modifier.fillMaxSize().padding(padding)) {
             TabRow(selectedTabIndex = selectedTab) {
                 listOf("Favorites", "Folders", "Trash").forEachIndexed { index, title ->
                     Tab(
@@ -76,7 +75,7 @@ fun ManagementScreen(viewModel: DiaryViewModel, onBack: () -> Unit) {
             }
             when (selectedTab) {
                 0 -> FavoriteList(favorites, viewModel)
-                1 -> FolderList(folders, viewModel)
+                1 -> FolderList(folders, notes, viewModel)
                 2 -> TrashList(trash, viewModel)
             }
         }
@@ -111,9 +110,14 @@ private fun FavoriteList(notes: List<NoteEntity>, viewModel: DiaryViewModel) {
 }
 
 @Composable
-private fun FolderList(folders: List<FolderEntity>, viewModel: DiaryViewModel) {
+private fun FolderList(
+    folders: List<FolderEntity>,
+    notes: List<NoteEntity>,
+    viewModel: DiaryViewModel
+) {
     var showCreate by remember { mutableStateOf(false) }
     var folderName by remember { mutableStateOf("") }
+    var folderToMoveNotes by remember { mutableStateOf<FolderEntity?>(null) }
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Button(onClick = { showCreate = true }, Modifier.fillMaxWidth()) {
@@ -128,12 +132,23 @@ private fun FolderList(folders: List<FolderEntity>, viewModel: DiaryViewModel) {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(folders, key = { it.id }) { folder ->
                     Card(Modifier.fillMaxWidth()) {
-                        Row(Modifier.fillMaxWidth().padding(16.dp)) {
-                            Icon(Icons.Default.Folder, contentDescription = null)
-                            Spacer(Modifier.padding(horizontal = 4.dp))
-                            Text(folder.name, Modifier.weight(1f))
-                            IconButton(onClick = { viewModel.deleteFolder(folder) }) {
-                                Icon(Icons.Default.Delete, contentDescription = "Delete folder")
+                        Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                            Row(Modifier.fillMaxWidth()) {
+                                Icon(Icons.Default.Folder, contentDescription = null)
+                                Spacer(Modifier.padding(horizontal = 4.dp))
+                                Text(folder.name, Modifier.weight(1f))
+                                IconButton(onClick = { viewModel.deleteFolder(folder) }) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Delete folder")
+                                }
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedButton(
+                                onClick = { folderToMoveNotes = folder },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.Folder, contentDescription = null)
+                                Spacer(Modifier.padding(horizontal = 4.dp))
+                                Text("Move notes to this folder")
                             }
                         }
                     }
@@ -166,6 +181,57 @@ private fun FolderList(folders: List<FolderEntity>, viewModel: DiaryViewModel) {
             }
         )
     }
+
+    folderToMoveNotes?.let { folder ->
+        MoveNotesDialog(
+            folder = folder,
+            notes = notes,
+            onMove = { noteId -> viewModel.moveNoteToFolder(noteId, folder.id) },
+            onDismiss = { folderToMoveNotes = null }
+        )
+    }
+}
+
+@Composable
+private fun MoveNotesDialog(
+    folder: FolderEntity,
+    notes: List<NoteEntity>,
+    onMove: (Long) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Move notes to ${folder.name}") },
+        text = {
+            if (notes.isEmpty()) {
+                Text("No active notes available.")
+            } else {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(notes, key = { it.id }) { note ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                            Column(Modifier.weight(1f)) {
+                                Text(note.title.ifBlank { "Untitled" })
+                                Text(
+                                    if (note.folderId == folder.id) "Already in this folder"
+                                    else "Current folder: ${note.folderId?.toString() ?: "None"}",
+                                    maxLines = 1
+                                )
+                            }
+                            Button(
+                                onClick = { onMove(note.id) },
+                                enabled = note.folderId != folder.id
+                            ) {
+                                Text(if (note.folderId == folder.id) "Moved" else "Move")
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            OutlinedButton(onClick = onDismiss) { Text("Done") }
+        }
+    )
 }
 
 @Composable
