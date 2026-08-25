@@ -1,84 +1,161 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
 package com.sujonmax.yourdairy
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.Modifier
-import androidx.compose.foundation.layout.*
+import androidx.activity.viewModels
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sujonmax.yourdairy.data.local.entity.NoteEntity
+import com.sujonmax.yourdairy.security.BiometricHelper
 import com.sujonmax.yourdairy.security.SecurityManager
 import com.sujonmax.yourdairy.ui.about.AboutScreen
 import com.sujonmax.yourdairy.ui.diary.DiaryEditorScreen
 import com.sujonmax.yourdairy.ui.diary.DiaryViewModel
 import com.sujonmax.yourdairy.ui.diary.DiaryViewModelFactory
 import com.sujonmax.yourdairy.ui.management.ManagementScreen
+import com.sujonmax.yourdairy.ui.security.PinLockScreen
+import com.sujonmax.yourdairy.ui.security.PinSetupScreen
+import com.sujonmax.yourdairy.ui.security.RecoveryScreen
 import com.sujonmax.yourdairy.ui.settings.SettingsScreen
 import com.sujonmax.yourdairy.ui.theme.YourDairyTheme
 import com.sujonmax.yourdairy.ui.txt.TxtEditorScreen
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
+    private val diaryViewModel: DiaryViewModel by viewModels { DiaryViewModelFactory((application as DiaryApplication).repository) }
+    private lateinit var security: SecurityManager
+    private var unlocked by mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent {
-            val application = application as DiaryApplication
-            val viewModel: DiaryViewModel = androidx.lifecycle.viewmodel.compose.viewModel(factory = DiaryViewModelFactory(application.repository))
-            val prefs = remember { getSharedPreferences("dream_diary_settings", MODE_PRIVATE) }
-            val security = remember { SecurityManager(this) }
-            var dark by remember { mutableStateOf(prefs.getBoolean("dark_mode", false)) }
-            var themeMode by remember { mutableStateOf(prefs.getString("theme_mode", "system") ?: "system") }
-            var fontScale by remember { mutableFloatStateOf(prefs.getFloat("font_scale", 1f)) }
-            val systemDark = androidx.compose.foundation.isSystemInDarkTheme()
-            val useDark = when (themeMode) { "dark" -> true; "light" -> false; else -> systemDark }
+        security = SecurityManager(applicationContext)
+        setContent { SecurityGate() }
+    }
 
-            YourDairyTheme(darkTheme = useDark, fontScale = fontScale) {
-                var editingNote by remember { mutableStateOf<NoteEntity?>(null) }
-                var isEditorOpen by rememberSaveable { mutableStateOf(false) }
-                var isAboutOpen by rememberSaveable { mutableStateOf(false) }
-                var isManagementOpen by rememberSaveable { mutableStateOf(false) }
-                var isTxtEditorOpen by rememberSaveable { mutableStateOf(false) }
-                var isSettingsOpen by rememberSaveable { mutableStateOf(false) }
-                val folders by viewModel.folders.collectAsStateWithLifecycle(initialValue = emptyList())
+    override fun onStart() {
+        super.onStart()
+        if (::security.isInitialized && security.isConfigured) unlocked = false
+    }
 
-                when {
-                    isSettingsOpen -> SettingsScreen(
-                        security = security,
-                        themeMode = themeMode,
-                        onThemeModeChange = { themeMode = it; prefs.edit().putString("theme_mode", it).apply() },
-                        fontScale = fontScale,
-                        onFontScaleChange = { fontScale = it; prefs.edit().putFloat("font_scale", it).apply() },
-                        onBack = { isSettingsOpen = false },
-                        onAbout = { isSettingsOpen = false; isAboutOpen = true }
-                    )
-                    isAboutOpen -> AboutScreen(onBack = { isAboutOpen = false })
-                    isManagementOpen -> ManagementScreen(viewModel = viewModel, onBack = { isManagementOpen = false })
-                    isTxtEditorOpen -> TxtEditorScreen(onBack = { isTxtEditorOpen = false })
-                    isEditorOpen -> DiaryEditorScreen(
-                        note = editingNote,
-                        folders = folders,
-                        onBack = { isEditorOpen = false },
-                        onSave = { note ->
-                            viewModel.saveNote(note)
-                            isEditorOpen = false
-                        }
-                    )
-                    else -> DreamDiaryHome(
-                        viewModel = viewModel,
-                        onNewNote = { editingNote = null; isEditorOpen = true },
-                        onEditNote = { note -> editingNote = note; isEditorOpen = true },
-                        onAbout = { isAboutOpen = true },
-                        onManagement = { isManagementOpen = true },
-                        onTxtEditor = { isTxtEditorOpen = true },
-                        onSettings = { isSettingsOpen = true }
-                    )
-                }
+    @Composable
+    private fun SecurityGate() {
+        var recoveryMode by rememberSaveable { mutableStateOf(false) }
+        var newRecoveryCode by rememberSaveable { mutableStateOf<String?>(null) }
+
+        when {
+            !security.isConfigured -> PinSetupScreen(security) { recoveryCode ->
+                unlocked = true
+                newRecoveryCode = recoveryCode
+            }
+            recoveryMode -> RecoveryScreen(
+                security,
+                onRecovered = { recoveryMode = false; unlocked = true },
+                onCancel = { recoveryMode = false }
+            )
+            !unlocked -> PinLockScreen(
+                security = security,
+                onUnlocked = { unlocked = true },
+                onBiometric = if (security.biometricEnabled && BiometricHelper.isAvailable(this@MainActivity)) {
+                    { BiometricHelper.authenticate(this@MainActivity, { unlocked = true }, {}) }
+                } else null,
+                onRecovery = { recoveryMode = true }
+            )
+            else -> DreamDiaryApp(diaryViewModel)
+        }
+
+        newRecoveryCode?.let { code ->
+            AlertDialog(
+                onDismissRequest = { newRecoveryCode = null },
+                title = { Text("Save your recovery code") },
+                text = { Text("$code\n\nStore this code somewhere safe. It is required if you forget your PIN.") },
+                confirmButton = { TextButton(onClick = { newRecoveryCode = null }) { Text("I saved it") } }
+            )
+        }
+    }
+
+    @Composable
+    private fun DreamDiaryApp(viewModel: DiaryViewModel) {
+        val prefs = getSharedPreferences("dream_diary_settings", MODE_PRIVATE)
+        var themeMode by rememberSaveable { mutableStateOf(prefs.getString("theme_mode", "system") ?: "system") }
+        var fontScale by rememberSaveable { mutableStateOf(prefs.getFloat("font_scale", 1f)) }
+        val dark = when (themeMode) { "dark" -> true; "light" -> false; else -> androidx.compose.foundation.isSystemInDarkTheme() }
+        YourDairyTheme(darkTheme = dark, fontScale = fontScale) {
+            var editingNote by remember { mutableStateOf<NoteEntity?>(null) }
+            var isEditorOpen by rememberSaveable { mutableStateOf(false) }
+            var isAboutOpen by rememberSaveable { mutableStateOf(false) }
+            var isManagementOpen by rememberSaveable { mutableStateOf(false) }
+            var isTxtEditorOpen by rememberSaveable { mutableStateOf(false) }
+            var isSettingsOpen by rememberSaveable { mutableStateOf(false) }
+            val folders by viewModel.folders.collectAsStateWithLifecycle(initialValue = emptyList())
+
+            when {
+                isSettingsOpen -> SettingsScreen(
+                    security = security,
+                    themeMode = themeMode,
+                    onThemeModeChange = { themeMode = it; prefs.edit().putString("theme_mode", it).apply() },
+                    fontScale = fontScale,
+                    onFontScaleChange = { fontScale = it; prefs.edit().putFloat("font_scale", it).apply() },
+                    onBack = { isSettingsOpen = false },
+                    onAbout = { isSettingsOpen = false; isAboutOpen = true }
+                )
+                isAboutOpen -> AboutScreen(onBack = { isAboutOpen = false })
+                isManagementOpen -> ManagementScreen(viewModel = viewModel, onBack = { isManagementOpen = false })
+                isTxtEditorOpen -> TxtEditorScreen(onBack = { isTxtEditorOpen = false })
+                isEditorOpen -> DiaryEditorScreen(
+                    note = editingNote,
+                    folders = folders,
+                    onBack = { isEditorOpen = false },
+                    onSave = { note ->
+                        viewModel.saveNote(note)
+                        isEditorOpen = false
+                    }
+                )
+                else -> DreamDiaryHome(
+                    viewModel = viewModel,
+                    onNewNote = { editingNote = null; isEditorOpen = true },
+                    onEditNote = { note -> editingNote = note; isEditorOpen = true },
+                    onAbout = { isAboutOpen = true },
+                    onManagement = { isManagementOpen = true },
+                    onTxtEditor = { isTxtEditorOpen = true },
+                    onSettings = { isSettingsOpen = true }
+                )
             }
         }
     }
@@ -101,7 +178,7 @@ private fun DreamDiaryHome(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Column { Text("Dream Diary", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold); Text("create by sujonmax", style = MaterialTheme.typography.labelSmall) } },
+                title = { Column { Text("Dream Diary", fontWeight = FontWeight.Bold); Text("create by sujonmax", style = MaterialTheme.typography.labelSmall) } },
                 actions = {
                     IconButton(onClick = onManagement) { Icon(Icons.Default.Favorite, contentDescription = "Favorites, folders and trash") }
                     IconButton(onClick = onTxtEditor) { Icon(Icons.Default.Description, contentDescription = "TXT editor") }
@@ -130,13 +207,13 @@ private fun DreamDiaryHome(
 private fun NoteCard(note: NoteEntity, onClick: (NoteEntity) -> Unit) {
     Card(onClick = { onClick(note) }, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(note.title.ifBlank { "Untitled" }, style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
-                Text(note.mood?.take(2).orEmpty(), style = MaterialTheme.typography.titleMedium)
+            Column(Modifier.fillMaxWidth()) {
+                Text(note.title.ifBlank { "Untitled" }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                if (!note.mood.isNullOrBlank()) Text(note.mood.take(2), style = MaterialTheme.typography.titleMedium)
             }
             Spacer(Modifier.height(6.dp))
             Text(note.content.ifBlank { "No content" }, style = MaterialTheme.typography.bodyMedium, maxLines = 4)
-            if (note.location != null) { Spacer(Modifier.height(4.dp)); Text("📍 ${note.location}", style = MaterialTheme.typography.labelMedium) }
+            if (!note.location.isNullOrBlank()) { Spacer(Modifier.height(4.dp)); Text("📍 ${note.location}", style = MaterialTheme.typography.labelMedium) }
             if (note.imageUris.isNotBlank() || note.audioUris.isNotBlank()) { Spacer(Modifier.height(4.dp)); Text("📎 Memory attachments", style = MaterialTheme.typography.labelMedium) }
             if (note.isFavorite) { Spacer(Modifier.height(6.dp)); Text("★ Favorite", style = MaterialTheme.typography.labelMedium) }
         }
