@@ -33,6 +33,9 @@ interface NoteDao {
     @Query("UPDATE notes SET isFavorite = :favorite, updatedAt = :time WHERE id = :id")
     suspend fun setFavorite(id: Long, favorite: Boolean, time: Long = System.currentTimeMillis())
 
+    @Query("UPDATE notes SET folderId = :folderId, updatedAt = :time WHERE id = :id")
+    suspend fun moveToFolder(id: Long, folderId: Long?, time: Long = System.currentTimeMillis())
+
     @Query("UPDATE notes SET isDeleted = 1, updatedAt = :time WHERE id = :id")
     suspend fun moveToTrash(id: Long, time: Long = System.currentTimeMillis())
 
