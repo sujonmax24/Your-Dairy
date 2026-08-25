@@ -5,12 +5,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -41,6 +41,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -87,7 +88,6 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text("Appearance", style = MaterialTheme.typography.titleMedium)
-
             ListItem(
                 leadingContent = { Icon(Icons.Default.DarkMode, null) },
                 headlineContent = { Text("Light / Dark mode") },
@@ -106,14 +106,12 @@ fun SettingsScreen(
                     }
                 }
             )
-
             ListItem(
                 leadingContent = { Icon(Icons.Default.Palette, null) },
                 headlineContent = { Text("Diary theme") },
                 supportingContent = { Text("${selectedTheme.emoji} ${selectedTheme.name}") },
                 trailingContent = { Text("Choose below") }
             )
-
             Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     themeOptions.take(4).forEach { option -> ThemeCard(option, option.id == themeName) { onThemeNameChange(option.id) } }
@@ -123,7 +121,6 @@ fun SettingsScreen(
                     themeOptions.drop(4).forEach { option -> ThemeCard(option, option.id == themeName) { onThemeNameChange(option.id) } }
                 }
             }
-
             Spacer(Modifier.height(8.dp))
             ListItem(
                 leadingContent = { Icon(Icons.Default.TextFields, null) },
@@ -136,7 +133,6 @@ fun SettingsScreen(
                     }
                 }
             )
-
             Spacer(Modifier.height(8.dp))
             Text("Security", style = MaterialTheme.typography.titleMedium)
             ListItem(
@@ -145,7 +141,6 @@ fun SettingsScreen(
                 supportingContent = { Text("Use fingerprint or device biometric when available") },
                 trailingContent = { Switch(checked = biometric, onCheckedChange = { value -> biometric = value; security.setBiometricEnabled(value) }) }
             )
-
             Spacer(Modifier.height(8.dp))
             Text("About", style = MaterialTheme.typography.titleMedium)
             ListItem(
@@ -162,17 +157,9 @@ fun SettingsScreen(
 
 @Composable
 private fun RowScope.ThemeCard(option: ThemeOption, selected: Boolean, onClick: () -> Unit) {
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.weight(1f),
-        shape = RoundedCornerShape(14.dp),
-        tonalElevation = if (selected) 5.dp else 1.dp
-    ) {
-        Column(Modifier.padding(8.dp), horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
-            Box(
-                Modifier.size(46.dp).clip(RoundedCornerShape(12.dp)).background(option.color),
-                contentAlignment = androidx.compose.ui.Alignment.Center
-            ) {
+    Surface(onClick = onClick, modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp), tonalElevation = if (selected) 5.dp else 1.dp) {
+        Column(Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.size(46.dp).clip(RoundedCornerShape(12.dp)).background(option.color), contentAlignment = Alignment.Center) {
                 Text(option.emoji)
                 if (selected) Icon(Icons.Default.Check, null, tint = Color.White, modifier = Modifier.size(20.dp))
             }
