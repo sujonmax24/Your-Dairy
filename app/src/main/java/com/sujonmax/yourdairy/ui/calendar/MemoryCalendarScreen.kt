@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -51,6 +50,7 @@ fun MemoryCalendarScreen(
     val selectedNotes = selectedDate?.let { noteDates[it].orEmpty() }.orEmpty()
     val firstDayOffset = month.atDay(1).dayOfWeek.value - 1
     val totalCells = ((firstDayOffset + month.lengthOfMonth() + 6) / 7) * 7
+    val cellWidth = 1f / 7f
 
     Column(Modifier.padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
@@ -65,7 +65,9 @@ fun MemoryCalendarScreen(
 
         val weekDays = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
         Row(Modifier.fillMaxWidth()) {
-            weekDays.forEach { day -> Text(day, modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold) }
+            weekDays.forEach { day ->
+                Text(day, modifier = Modifier.fillMaxWidth(cellWidth), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+            }
         }
         Spacer(Modifier.height(6.dp))
 
@@ -80,11 +82,11 @@ fun MemoryCalendarScreen(
                             date = date,
                             notes = noteDates[date].orEmpty(),
                             selected = date == selectedDate,
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.fillMaxWidth(cellWidth),
                             onClick = { selectedDate = date }
                         )
                     } else {
-                        Box(Modifier.weight(1f).size(48.dp))
+                        Box(Modifier.fillMaxWidth(cellWidth).size(48.dp))
                     }
                 }
             }
