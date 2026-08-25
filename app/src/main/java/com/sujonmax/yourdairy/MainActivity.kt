@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Info
@@ -47,6 +48,7 @@ import com.sujonmax.yourdairy.data.local.entity.NoteEntity
 import com.sujonmax.yourdairy.security.BiometricHelper
 import com.sujonmax.yourdairy.security.SecurityManager
 import com.sujonmax.yourdairy.ui.about.AboutScreen
+import com.sujonmax.yourdairy.ui.calendar.MemoryCalendarScreen
 import com.sujonmax.yourdairy.ui.diary.DiaryEditorScreen
 import com.sujonmax.yourdairy.ui.diary.DiaryViewModel
 import com.sujonmax.yourdairy.ui.diary.DiaryViewModelFactory
@@ -123,7 +125,9 @@ class MainActivity : FragmentActivity() {
             var isManagementOpen by rememberSaveable { mutableStateOf(false) }
             var isTxtEditorOpen by rememberSaveable { mutableStateOf(false) }
             var isSettingsOpen by rememberSaveable { mutableStateOf(false) }
+            var isCalendarOpen by rememberSaveable { mutableStateOf(false) }
             val folders by viewModel.folders.collectAsStateWithLifecycle(initialValue = emptyList())
+            val notes by viewModel.notes.collectAsStateWithLifecycle(initialValue = emptyList())
 
             when {
                 isSettingsOpen -> SettingsScreen(
@@ -138,6 +142,11 @@ class MainActivity : FragmentActivity() {
                 isAboutOpen -> AboutScreen(onBack = { isAboutOpen = false })
                 isManagementOpen -> ManagementScreen(viewModel = viewModel, onBack = { isManagementOpen = false })
                 isTxtEditorOpen -> TxtEditorScreen(onBack = { isTxtEditorOpen = false })
+                isCalendarOpen -> MemoryCalendarScreen(
+                    notes = notes,
+                    onOpenNote = { note -> editingNote = note; isCalendarOpen = false; isEditorOpen = true },
+                    onBack = { isCalendarOpen = false }
+                )
                 isEditorOpen -> DiaryEditorScreen(
                     note = editingNote,
                     folders = folders,
@@ -154,7 +163,8 @@ class MainActivity : FragmentActivity() {
                     onAbout = { isAboutOpen = true },
                     onManagement = { isManagementOpen = true },
                     onTxtEditor = { isTxtEditorOpen = true },
-                    onSettings = { isSettingsOpen = true }
+                    onSettings = { isSettingsOpen = true },
+                    onCalendar = { isCalendarOpen = true }
                 )
             }
         }
@@ -169,7 +179,8 @@ private fun DreamDiaryHome(
     onAbout: () -> Unit,
     onManagement: () -> Unit,
     onTxtEditor: () -> Unit,
-    onSettings: () -> Unit
+    onSettings: () -> Unit,
+    onCalendar: () -> Unit
 ) {
     val notes by viewModel.searchResults.collectAsStateWithLifecycle(initialValue = emptyList())
     val query by viewModel.query.collectAsStateWithLifecycle()
@@ -180,6 +191,7 @@ private fun DreamDiaryHome(
             TopAppBar(
                 title = { Column { Text("Dream Diary", fontWeight = FontWeight.Bold); Text("create by sujonmax", style = MaterialTheme.typography.labelSmall) } },
                 actions = {
+                    IconButton(onClick = onCalendar) { Icon(Icons.Default.CalendarMonth, contentDescription = "Memory Calendar") }
                     IconButton(onClick = onManagement) { Icon(Icons.Default.Favorite, contentDescription = "Favorites, folders and trash") }
                     IconButton(onClick = onTxtEditor) { Icon(Icons.Default.Description, contentDescription = "TXT editor") }
                     IconButton(onClick = { searchMode = !searchMode }) { Icon(Icons.Default.Search, contentDescription = "Search diary") }
