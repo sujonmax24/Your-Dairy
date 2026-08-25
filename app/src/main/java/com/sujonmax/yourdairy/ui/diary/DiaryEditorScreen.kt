@@ -39,13 +39,17 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.rememberSaveable
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.sujonmax.yourdairy.data.local.entity.FolderEntity
 import com.sujonmax.yourdairy.data.local.entity.NoteEntity
 import com.sujonmax.yourdairy.ui.media.AudioRecorderController
@@ -99,6 +103,7 @@ fun DiaryEditorScreen(
     onSave: (NoteEntity) -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     var title by rememberSaveable(note?.id) { mutableStateOf(note?.title.orEmpty()) }
     var body by remember(note?.id) { mutableStateOf(TextFieldValue(note?.content.orEmpty())) }
     var tags by rememberSaveable(note?.id) { mutableStateOf(note?.tags.orEmpty()) }
@@ -212,19 +217,44 @@ fun DiaryEditorScreen(
     val pageBackground = memoryBackgroundColor(backgroundKey)
     val selectedBackgroundName = memoryBackgrounds.firstOrNull { it.first == backgroundKey }?.second ?: "Default"
 
+    val currentNote = rememberUpdatedState((note ?: NoteEntity()).copy(
+        title = title.trim(),
+        content = body.text,
+        tags = tags.trim(),
+        folderId = folderId,
+        mood = mood.ifBlank { null },
+        location = location.trim().ifBlank { null },
+        imageUris = imageUris,
+        audioUris = audioUris,
+        backgroundKey = backgroundKey
+    ))
+    val latestSaveEnabled = rememberUpdatedState(saveEnabled)
+    val latestOnSave = rememberUpdatedState(onSave)
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP && latestSaveEnabled.value) {
+                latestOnSave.value(currentNote.value)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(if (note == null) "New Memory" else "Edit Memory") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") } },
+                navigationIcon = {
+                    IconButton(onClick = {
+                        if (saveEnabled) onSave(currentNote.value)
+                        onBack()
+                    }) { Icon(Icons.Default.ArrowBack, "Back") }
+                },
                 actions = {
                     IconButton(
                         onClick = {
-                            onSave((note ?: NoteEntity()).copy(
-                                title = title.trim(), content = body.text, tags = tags.trim(), folderId = folderId,
-                                mood = mood.ifBlank { null }, location = location.trim().ifBlank { null },
-                                imageUris = imageUris, audioUris = audioUris, backgroundKey = backgroundKey
-                            ))
+                            if (saveEnabled) onSave(currentNote.value)
                         }, enabled = saveEnabled
                     ) { Icon(Icons.Default.Check, "Save memory") }
                 }
@@ -296,10 +326,7 @@ fun DiaryEditorScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     memoryBackgrounds.forEach { (key, label) ->
                         val selected = key == backgroundKey
-                        Button(
-                            onClick = { backgroundKey = key; showBackgroundDialog = false },
-                            modifier = Modifier.fillMaxWidth()
-                        ) { Text(if (selected) "✓ $label" else label) }
+                        Button(onClick = { backgroundKey = key; showBackgroundDialog = false }, modifier = Modifier.fillMaxWidth()) { Text(if (selected) "✓ $label" else label) }
                     }
                     Text("This background is saved only for this memory.", style = MaterialTheme.typography.bodySmall)
                 }
