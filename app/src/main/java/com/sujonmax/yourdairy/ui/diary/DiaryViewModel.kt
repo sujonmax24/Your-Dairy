@@ -53,6 +53,10 @@ class DiaryViewModel(
         repository.setFavorite(note.id, !note.isFavorite)
     }
 
+    fun moveNoteToFolder(noteId: Long, folderId: Long?) = viewModelScope.launch {
+        repository.moveNoteToFolder(noteId, folderId)
+    }
+
     fun createFolder(name: String) {
         if (name.isBlank()) return
         viewModelScope.launch { repository.createFolder(name) }
