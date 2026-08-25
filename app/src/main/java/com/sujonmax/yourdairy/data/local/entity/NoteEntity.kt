@@ -30,6 +30,7 @@ data class NoteEntity(
     val location: String? = null,
     val isFavorite: Boolean = false,
     val isDeleted: Boolean = false,
+    val backgroundKey: String = "default",
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 )
