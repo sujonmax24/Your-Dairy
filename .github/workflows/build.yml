@@ -58,3 +58,5 @@ jobs:
           name: dream-diary-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
+# CI verification touchpoint: keeps the workflow push-triggered for main.
