@@ -15,7 +15,7 @@ import com.sujonmax.yourdairy.data.local.entity.NoteEntity
 
 @Database(
     entities = [NoteEntity::class, FolderEntity::class, AttachmentEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class DreamDiaryDatabase : RoomDatabase() {
@@ -33,6 +33,12 @@ abstract class DreamDiaryDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE notes ADD COLUMN backgroundKey TEXT NOT NULL DEFAULT 'default'")
+            }
+        }
+
         @Volatile
         private var INSTANCE: DreamDiaryDatabase? = null
 
@@ -43,7 +49,7 @@ abstract class DreamDiaryDatabase : RoomDatabase() {
                     DreamDiaryDatabase::class.java,
                     "dream_diary.db"
                 )
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .build()
                     .also { INSTANCE = it }
             }
