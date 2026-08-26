@@ -113,7 +113,6 @@ fun DiaryEditorScreen(
     var imageUris by rememberSaveable(note?.id) { mutableStateOf(note?.imageUris.orEmpty()) }
     var audioUris by rememberSaveable(note?.id) { mutableStateOf(note?.audioUris.orEmpty()) }
     var backgroundKey by rememberSaveable(note?.id) { mutableStateOf(note?.backgroundKey ?: "default") }
-    var showTableDialog by rememberSaveable { mutableStateOf(false) }
     var showFolderDialog by rememberSaveable { mutableStateOf(false) }
     var showMoodDialog by rememberSaveable { mutableStateOf(false) }
     var showLocationDialog by rememberSaveable { mutableStateOf(false) }
@@ -302,7 +301,6 @@ fun DiaryEditorScreen(
                 TextButton(onClick = { insertAtSelection("1. ") }) { Text("Number") }
                 TextButton(onClick = { insertAtSelection("# ") }) { Text("Heading") }
                 TextButton(onClick = { insertAtSelection("> ") }) { Text("Quote") }
-                TextButton(onClick = { showTableDialog = true }) { Icon(Icons.Default.AttachFile, null); Text("Table") }
             }
             HorizontalDivider()
             BasicTextField(
@@ -351,5 +349,4 @@ fun DiaryEditorScreen(
     if (showMoodDialog) AlertDialog(onDismissRequest = { showMoodDialog = false }, title = { Text("Choose your mood") }, text = { Column(verticalArrangement = Arrangement.spacedBy(4.dp)) { memoryMoods.forEach { option -> TextButton(onClick = { mood = option; showMoodDialog = false }, modifier = Modifier.fillMaxWidth()) { Text(option) } } } }, confirmButton = { TextButton(onClick = { showMoodDialog = false }) { Text("Close") } })
     if (showLocationDialog) AlertDialog(onDismissRequest = { showLocationDialog = false }, title = { Text("Memory location") }, text = { OutlinedTextField(value = location, onValueChange = { location = it }, label = { Text("Place or location") }, singleLine = true, modifier = Modifier.fillMaxWidth()) }, confirmButton = { Button(onClick = { showLocationDialog = false }) { Text("Save") } }, dismissButton = { TextButton(onClick = { location = ""; showLocationDialog = false }) { Text("Clear") } })
     if (showFolderDialog) AlertDialog(onDismissRequest = { showFolderDialog = false }, title = { Text("Choose folder") }, text = { Column(verticalArrangement = Arrangement.spacedBy(4.dp)) { TextButton(onClick = { folderId = null; showFolderDialog = false }, modifier = Modifier.fillMaxWidth()) { Text("No folder") }; folders.forEach { folder -> TextButton(onClick = { folderId = folder.id; showFolderDialog = false }, modifier = Modifier.fillMaxWidth()) { Text(folder.name) } }; if (folders.isEmpty()) Text("Create a folder from My Diary first.") } }, confirmButton = { TextButton(onClick = { showFolderDialog = false }) { Text("Close") } })
-    if (showTableDialog) TableEditorDialog(onDismiss = { showTableDialog = false }, onSave = { table -> insertAtSelection(table); showTableDialog = false })
 }
