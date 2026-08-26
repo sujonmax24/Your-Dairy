@@ -19,7 +19,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material3.DropdownMenu
@@ -31,7 +30,6 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -46,7 +44,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.sujonmax.yourdairy.BuildConfig
-import com.sujonmax.yourdairy.security.SecurityManager
 
 private data class ThemeOption(val id:String,val name:String,val emoji:String,val color:Color)
 private data class BackgroundOption(val id:String,val name:String,val emoji:String,val color:Color)
@@ -62,9 +59,8 @@ private val backgroundOptions=listOf(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(security:SecurityManager,themeMode:String,onThemeModeChange:(String)->Unit,themeName:String,onThemeNameChange:(String)->Unit,backgroundName:String,onBackgroundNameChange:(String)->Unit,fontScale:Float,onFontScaleChange:(Float)->Unit,onBack:()->Unit,onAbout:()->Unit){
+fun SettingsScreen(themeMode:String,onThemeModeChange:(String)->Unit,themeName:String,onThemeNameChange:(String)->Unit,backgroundName:String,onBackgroundNameChange:(String)->Unit,fontScale:Float,onFontScaleChange:(Float)->Unit,onBack:()->Unit,onAbout:()->Unit){
  var themeExpanded by remember{mutableStateOf(false)}
- var biometric by remember{mutableStateOf(security.biometricEnabled)}
  val selectedTheme=themeOptions.firstOrNull{it.id==themeName}?:themeOptions.first()
  val selectedBackground=backgroundOptions.firstOrNull{it.id==backgroundName}?:backgroundOptions.first()
  Scaffold(topBar={TopAppBar(title={Text("Settings")},navigationIcon={IconButton(onClick=onBack){Icon(Icons.AutoMirrored.Filled.ArrowBack,"Back")}})}){padding->
@@ -78,8 +74,6 @@ fun SettingsScreen(security:SecurityManager,themeMode:String,onThemeModeChange:(
    BackgroundGrid(backgroundName,onBackgroundNameChange)
    Spacer(Modifier.height(8.dp))
    ListItem(leadingContent={Icon(Icons.Default.TextFields,null)},headlineContent={Text("Font size")},supportingContent={Text("${(fontScale*100).toInt()}%")},trailingContent={Row{TextButton(onClick={onFontScaleChange((fontScale-.1f).coerceAtLeast(.8f))}){Text("−")};TextButton(onClick={onFontScaleChange((fontScale+.1f).coerceAtMost(1.4f))}){Text("+")}}})
-   Spacer(Modifier.height(8.dp));Text("Security",style=MaterialTheme.typography.titleMedium)
-   ListItem(leadingContent={Icon(Icons.Default.Lock,null)},headlineContent={Text("Biometric unlock")},supportingContent={Text("Use fingerprint or device biometric when available")},trailingContent={Switch(checked=biometric,onCheckedChange={value->biometric=value;security.setBiometricEnabled(value)})})
    Spacer(Modifier.height(8.dp));Text("About",style=MaterialTheme.typography.titleMedium)
    ListItem(leadingContent={Icon(Icons.Default.Info,null)},headlineContent={Text("App version")},supportingContent={Text("Version ${BuildConfig.VERSION_NAME} • Created by sujonmax")},modifier=Modifier.fillMaxWidth())
    TextButton(onClick=onAbout,modifier=Modifier.fillMaxWidth()){Text("Open About")};Spacer(Modifier.height(16.dp))
