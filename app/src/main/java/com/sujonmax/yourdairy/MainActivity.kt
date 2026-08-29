@@ -62,6 +62,9 @@ import com.sujonmax.yourdairy.ui.management.ManagementScreen
 import com.sujonmax.yourdairy.ui.settings.SettingsScreen
 import com.sujonmax.yourdairy.ui.theme.YourDairyTheme
 import com.sujonmax.yourdairy.ui.txt.TxtEditorScreen
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -234,6 +237,16 @@ private fun NoteCard(note: NoteEntity, onClick: (NoteEntity) -> Unit) {
                 androidx.compose.foundation.layout.Spacer(Modifier.padding(top = 6.dp))
                 Text("★ Favorite", style = MaterialTheme.typography.labelMedium)
             }
+            androidx.compose.foundation.layout.Spacer(Modifier.padding(top = 8.dp))
+            Text(
+                "Saved: ${formatNoteDateTime(note.updatedAt)}",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
+}
+
+private fun formatNoteDateTime(timestamp: Long): String {
+    return SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()).format(Date(timestamp))
 }
