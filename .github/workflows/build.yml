@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Dream Diary Release APK
 
 on:
   push:
@@ -9,13 +9,14 @@ permissions:
   contents: read
 
 concurrency:
-  group: android-build-${{ github.ref }}
+  group: android-release-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
+  build-release:
+    name: Build signed Release APK
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - name: Checkout
@@ -46,17 +47,70 @@ jobs:
           gradle --version
           sdkmanager --list_installed
 
-      - name: Build debug APK
-        run: gradle --no-daemon --stacktrace :app:assembleDebug
+      - name: Check signing secrets
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          test -n "$KEYSTORE_B64" || { echo "Missing ANDROID_KEYSTORE_BASE64"; exit 1; }
+          test -n "$KEYSTORE_PASSWORD" || { echo "Missing ANDROID_KEYSTORE_PASSWORD"; exit 1; }
+          test -n "$KEY_ALIAS" || { echo "Missing ANDROID_KEY_ALIAS"; exit 1; }
+          test -n "$KEY_PASSWORD" || { echo "Missing ANDROID_KEY_PASSWORD"; exit 1; }
 
-      - name: Verify APK exists
-        run: test -s app/build/outputs/apk/debug/app-debug.apk
+      - name: Restore release keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/dream-diary-release.jks"
+          test -s "$RUNNER_TEMP/dream-diary-release.jks"
 
-      - name: Upload APK
+      - name: Build unsigned Release APK
+        run: gradle --no-daemon --stacktrace :app:assembleRelease
+
+      - name: Sign and verify Release APK
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          APK_IN="app/build/outputs/apk/release/app-release-unsigned.apk"
+          APK_OUT="app/build/outputs/apk/release/Dream-Diary-v${GITHUB_RUN_NUMBER}.apk"
+          ZIPALIGN="$ANDROID_HOME/build-tools/35.0.0/zipalign"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          KEYSTORE="$RUNNER_TEMP/dream-diary-release.jks"
+
+          test -s "$APK_IN"
+          "$ZIPALIGN" -f 4 "$APK_IN" "$RUNNER_TEMP/aligned.apk"
+          "$APKSIGNER" sign \
+            --ks "$KEYSTORE" \
+            --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass env:KEYSTORE_PASSWORD \
+            --key-pass env:KEY_PASSWORD \
+            --out "$APK_OUT" \
+            "$RUNNER_TEMP/aligned.apk"
+
+          "$APKSIGNER" verify --verbose "$APK_OUT"
+          test -s "$APK_OUT"
+
+          echo "Release APK: $APK_OUT"
+
+      - name: Read APK metadata
+        run: |
+          "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump badging app/build/outputs/apk/release/Dream-Diary-v${GITHUB_RUN_NUMBER}.apk | head -n 3
+
+      - name: Upload signed Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: dream-diary-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: dream-diary-release-apk
+          path: app/build/outputs/apk/release/Dream-Diary-v${{ github.run_number }}.apk
           if-no-files-found: error
+          retention-days: 30
 
-# CI verification touchpoint: keeps the workflow push-triggered for main.
+      - name: Cleanup signing material
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/dream-diary-release.jks" "$RUNNER_TEMP/aligned.apk"
